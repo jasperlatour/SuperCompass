@@ -1,5 +1,5 @@
 #include "M5Dial.h"
-#include <math.h>          // For cos(), sin()
+#include <math.h>          // For cos(), sin(), atan2()
 #include <MechaQMC5883.h>  // For the QMC5883 compass sensor
 
 #ifndef PI
@@ -7,10 +7,15 @@
 #endif
 
 MechaQMC5883 qmc;
+double a;
 int x, y, z;
 
 // Global variables for compass center and radius
 int centerX, centerY, R;
+
+// Variables to store the previous needle coordinates
+int prevNeedleX = 0;
+int prevNeedleY = 0;
 
 void drawCompass() {
     // Set text size based on display height
@@ -30,7 +35,7 @@ void drawCompass() {
     R = M5Dial.Display.height() / 2;
     int R_letters = R - 15;  // Adjust as needed
 
-    // Draw the compass
+    // Draw the compass background
     M5Dial.Display.fillScreen(TFT_BLACK);
     M5Dial.Display.fillCircle(centerX, centerY, R, TFT_BLUE);
     M5Dial.Display.fillCircle(centerX, centerY, R - 10, TFT_WHITE);
@@ -91,28 +96,40 @@ void setup() {
 
 void loop() {
     // Read the compass sensor values
-    qmc.read(&x, &y, &z);
+    qmc.read(&x,&y,&z);
+    a = qmc.azimuth(&y,&x);
 
-    // Define the area where the text will be displayed
-    int textAreaWidth = 120;  // Adjust as needed
-    int textAreaHeight = 60;  // Adjust as needed
-    int textAreaX = centerX - textAreaWidth / 2;
-    int textAreaY = centerY - textAreaHeight / 2;
+    // Calculate the heading angle in degrees
+    double heading = atan2(y, x) * 180.0 / PI;
 
-    // Clear the text area by filling it with white (same as compass center)
-    M5Dial.Display.fillRect(textAreaX, textAreaY, textAreaWidth, textAreaHeight, TFT_WHITE);
+    
 
-    // Set text color and size
+    // Convert heading to radians for drawing
+    double heading_rad = a * PI / 180.0;
+
+    // Calculate the end point of the needle
+    int needleLength = R - 20;  // Adjust as needed
+    int needleX = centerX + needleLength * cos(heading_rad);
+    int needleY = centerY + needleLength * sin(heading_rad);
+
+    // Erase the previous needle by drawing over it
+    if (prevNeedleX != 0 && prevNeedleY != 0) {
+        M5Dial.Display.drawLine(centerX, centerY, prevNeedleX, prevNeedleY, TFT_WHITE);
+    }
+
+    // Draw the new needle
+    M5Dial.Display.drawLine(centerX, centerY, needleX, needleY, TFT_RED);
+
+    // Save the current needle position for the next loop
+    prevNeedleX = needleX;
+    prevNeedleY = needleY;
+
+    // Optionally, display the heading value in degrees
     M5Dial.Display.setTextColor(TFT_BLACK, TFT_WHITE);
-    M5Dial.Display.setTextSize(2);  // Adjust as needed
-
-    // Set text datum to center
-    M5Dial.Display.setTextDatum(CC_DATUM);  // Center Center
-
-    // Display the values centered in the text area
-    M5Dial.Display.drawString("X: " + String(x), centerX, centerY - 20);
-    M5Dial.Display.drawString("Y: " + String(y), centerX, centerY);
-    M5Dial.Display.drawString("Z: " + String(z), centerX, centerY + 20);
+    M5Dial.Display.setTextSize(2);
+    M5Dial.Display.setTextDatum(TC_DATUM);  // Top Center
+    M5Dial.Display.fillRect(centerX - 50, centerY + R - 30, 100, 20, TFT_WHITE);  // Clear previous text
+    M5Dial.Display.drawString("Heading: " + String(heading, 1) + "°", centerX, centerY + R - 30);
 
     delay(100);  // Adjust delay as needed
 }
