@@ -6,7 +6,7 @@
 
 #include "drawing.h"    
 #include "calculations.h" // For calculateTargetBearing   
-
+#include "config.h"
 
 #ifndef M_PI
     #define M_PI 3.14159265358979323846
@@ -26,17 +26,6 @@ int x, y, z;
 
 // Compass Display Geometry (calculated in setup/loop)
 int centerX, centerY, R;
-
-// --- User Configuration ---
-const double TARGET_LAT = 48.8584;   // Target Latitude (e.g., Eiffel Tower)
-const double TARGET_LON = 2.2945;    // Target Longitude (e.g., Eiffel Tower)
-const float MAGNETIC_DECLINATION = 2; // Example: 1.5° West declination
-const float offset_x = 345.0;
-const float offset_y = -196.0;
-const float scale_x = 0.996644295;
-const float scale_y = 1.003378378;
-// --- End User Configuration ---
-
 
 void setup() {
     Serial.begin(115200);
@@ -75,21 +64,51 @@ void loop() {
     }
 
     // --- Heading Calculation ---
-    double trueHeading = calculateTrueHeading(qmc, offset_x, offset_y, scale_x, scale_y, MAGNETIC_DECLINATION);
-    double trueHeading_rad = trueHeading * M_PI / 180.0;
-
-    // --- Target Calculation ---
-    double targetBearing = 0.0;
-    double arrowAngle = 0.0;
-    bool locationIsValid = gps.location.isValid() && gps.location.age() < 2000; // Valid & recent fix
-
-    if (locationIsValid) {
-        double currentLat = gps.location.lat();
-        double currentLon = gps.location.lng();
-        targetBearing = calculateTargetBearing(currentLat, currentLon, TARGET_LAT, TARGET_LON);
-        arrowAngle = targetBearing - trueHeading;
-        arrowAngle = fmod(arrowAngle + 360.0, 360.0); // Normalize arrow angle 0-360
-    }
+       // 1. Get the RAW heading from the sensor
+       double rawTrueHeading = calculateTrueHeading(qmc, offset_x, offset_y, scale_x, scale_y, MAGNETIC_DECLINATION);
+       double rawTrueHeading_rad = rawTrueHeading * M_PI / 180.0;
+   
+       // 2. Calculate current heading components
+       double currentX = cos(rawTrueHeading_rad);
+       double currentY = sin(rawTrueHeading_rad);
+   
+       // 3. Apply Exponential Moving Average (EMA) to components
+       if (firstHeadingReading) {
+           // Initialize with the first reading
+           smoothedHeadingX = currentX;
+           smoothedHeadingY = currentY;
+           firstHeadingReading = false;
+       } else {
+           // Apply EMA formula
+           smoothedHeadingX = HEADING_SMOOTHING_FACTOR * currentX + (1.0 - HEADING_SMOOTHING_FACTOR) * smoothedHeadingX;
+           smoothedHeadingY = HEADING_SMOOTHING_FACTOR * currentY + (1.0 - HEADING_SMOOTHING_FACTOR) * smoothedHeadingY;
+       }
+   
+       // 4. Calculate the smoothed heading angle from the averaged components
+       double smoothedHeading_rad = atan2(smoothedHeadingY, smoothedHeadingX);
+   
+       // 5. Convert smoothed heading back to degrees (optional, if needed elsewhere)
+       //    Ensure it's normalized between 0 and 360
+       double smoothedHeading_deg = fmod(smoothedHeading_rad * 180.0 / M_PI + 360.0, 360.0);
+   
+       // --- Use the SMOOTHED heading for further calculations and drawing ---
+       double trueHeading_rad = smoothedHeading_rad; // Use the smoothed radians
+       double trueHeading = smoothedHeading_deg;     // Use the smoothed degrees (if needed)
+   
+   
+       // --- Target Calculation ---
+       double targetBearing = 0.0;
+       double arrowAngle = 0.0;
+       bool locationIsValid = gps.location.isValid() && gps.location.age() < 2000; // Valid & recent fix
+   
+       if (locationIsValid) {
+           double currentLat = gps.location.lat();
+           double currentLon = gps.location.lng();
+           targetBearing = calculateTargetBearing(currentLat, currentLon, TARGET_LAT, TARGET_LON);
+           // Calculate arrow angle based on SMOOTHED heading
+           arrowAngle = targetBearing - trueHeading; // Using smoothed degrees here
+           arrowAngle = fmod(arrowAngle + 360.0, 360.0); // Normalize arrow angle 0-360
+       }
 
     // --- Drawing ---
     drawCompassBackgroundToCanvas(canvas, centerX, centerY, R);
