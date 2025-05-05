@@ -3,6 +3,7 @@
 #include "M5Dial.h" // Include again for implementation details like setTextSize, colors, etc.
 #include <math.h>   // For sin(), cos()
 
+
 // Define PI if not already defined (it usually is in math.h)
 #ifndef M_PI
     #define M_PI 3.14159265358979323846
@@ -72,29 +73,74 @@ void drawCompassLabels(M5Canvas& canvas, double heading_rad, int centerX, int ce
     }
 }
 
-
 void drawTargetArrow(M5Canvas& canvas, double arrowAngleDeg, int centerX, int centerY, int R) {
-    // Convert angle to radians for math functions. Adjust by -90 deg because 0 deg is East in standard math, but we want 0 deg North.
-    double arrowAngleRad = (arrowAngleDeg - 90.0) * M_PI / 180.0;
-    int arrowLength = R - 20; // Length of the arrow line
 
-    int endX = centerX + arrowLength * cos(arrowAngleRad);
-    int endY = centerY + arrowLength * sin(arrowAngleRad);
+    // --- Arrow Dimensions (relative to Radius R) ---
+    // Adjust these values to change the arrow's shape and size
+    const double arrowTipRadius = R * 0.85;  // How far the tip extends from the center
+    const double arrowBaseRadius = R * 0.10; // How far the base midpoint is from the center
+    const double arrowHalfWidth = R * 0.20;  // Half the width of the arrow base
 
-    // Draw the main line of the arrow
-    canvas.drawLine(centerX, centerY, endX, endY, TFT_MAGENTA);
+    // --- Calculate Angle in Radians ---
+    // Convert degrees to radians. Adjust by -90 degrees because 0 degrees is UP (negative Y direction)
+    // in screen coordinates, while standard math angle 0 is RIGHT (positive X direction).
+    // Alternatively, use screen-coordinate specific rotation below.
+    // Let's calculate rotation directly for screen coordinates where 0 is up.
+    double arrowAngleRad = arrowAngleDeg * M_PI / 180.0;
+    double cosA = cos(arrowAngleRad);
+    double sinA = sin(arrowAngleRad);
 
-    // Draw the arrowhead (optional, simple triangle)
-    int arrowHeadSize = 8;
-    double angle1 = arrowAngleRad + M_PI - 0.4; // Angle for one side of arrowhead
-    double angle2 = arrowAngleRad + M_PI + 0.4; // Angle for other side
-    int x1 = endX + arrowHeadSize * cos(angle1);
-    int y1 = endY + arrowHeadSize * sin(angle1);
-    int x2 = endX + arrowHeadSize * cos(angle2);
-    int y2 = endY + arrowHeadSize * sin(angle2);
+    // --- Calculate Base Vertex Coordinates (Unrotated - Pointing UP) ---
+    // Relative to center (0,0)
+    // Tip point (A)
+    double tipX_rel = 0;
+    double tipY_rel = -arrowTipRadius;
+    // Base Left point (B)
+    double baseLX_rel = -arrowHalfWidth;
+    double baseLY_rel = -arrowBaseRadius;
+    // Base Right point (C)
+    double baseRX_rel = arrowHalfWidth;
+    double baseRY_rel = -arrowBaseRadius;
+    // Base Midpoint (M)
+    double baseMX_rel = 0;
+    double baseMY_rel = -arrowBaseRadius;
 
-    canvas.fillTriangle(endX, endY, x1, y1, x2, y2, TFT_MAGENTA);
+    // --- Rotate Vertex Coordinates ---
+    // Standard 2D rotation formula:
+    // x' = x*cos(a) - y*sin(a)
+    // y' = x*sin(a) + y*cos(a)
+    // Apply to each relative point
+
+    // Rotated Tip (A')
+    int Ax = centerX + (int)(tipX_rel * cosA - tipY_rel * sinA);
+    int Ay = centerY + (int)(tipX_rel * sinA + tipY_rel * cosA);
+
+    // Rotated Base Left (B')
+    int Bx = centerX + (int)(baseLX_rel * cosA - baseLY_rel * sinA);
+    int By = centerY + (int)(baseLX_rel * sinA + baseLY_rel * cosA);
+
+    // Rotated Base Right (C')
+    int Cx = centerX + (int)(baseRX_rel * cosA - baseRY_rel * sinA);
+    int Cy = centerY + (int)(baseRX_rel * sinA + baseRY_rel * cosA);
+
+    // Rotated Base Midpoint (M')
+    int Mx = centerX + (int)(baseMX_rel * cosA - baseMY_rel * sinA);
+    int My = centerY + (int)(baseMX_rel * sinA + baseMY_rel * cosA);
+
+    // --- Draw the Arrow ---
+    // Define the color (assuming TFT_BLUE is available)
+    uint16_t arrowColor = TFT_BLUE; // Or canvas.color565(0, 0, 255);
+
+    // Draw the filled right half (Triangle AMC)
+    canvas.fillTriangle(Ax, Ay, Mx, My, Cx, Cy, arrowColor);
+
+    // Draw the outlined left half (Triangle AMB)
+    // M5Canvas drawTriangle draws the outline connecting the three points.
+    canvas.drawTriangle(Ax, Ay, Mx, My, Bx, By, arrowColor);
+
 }
+
+
 
 
 void drawGpsInfo(M5Canvas& canvas, const TinyGPSPlus& gps, int centerX, int centerY) {
@@ -111,7 +157,7 @@ void drawGpsInfo(M5Canvas& canvas, const TinyGPSPlus& gps, int centerX, int cent
     } else {
         // Show "No GPS" if not valid (on canvas)
         canvas.setTextColor(TFT_RED, TFT_WHITE);
-        canvas.drawString("No GPS Fix", centerX, centerY);
+        canvas.drawString("No GPS Fix", centerX , centerY - 50);
     }
 }
 
