@@ -8,6 +8,13 @@
 #include "calculations.h" // For calculateTargetBearing   
 #include "config.h"
 
+//webserver
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <SPIFFS.h> // Optional: If serving HTML from filesystem
+
+
 #ifndef M_PI
     #define M_PI 3.14159265358979323846
 #endif
