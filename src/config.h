@@ -18,5 +18,10 @@ double smoothedHeadingX = 0.0;
 double smoothedHeadingY = 0.0;
 bool firstHeadingReading = true; 
 
+//network credentials
+// Network Credentials (Consider using WiFiManager for production)
+const char* ssid = "Just One Byte";
+const char* password = "Brandevoort11";
+
 
 #endif 

@@ -34,6 +34,8 @@ int x, y, z;
 // Compass Display Geometry (calculated in setup/loop)
 int centerX, centerY, R;
 
+AsyncWebServer server(80);
+
 void setup() {
     Serial.begin(115200);
     auto cfg = M5.config();
@@ -54,6 +56,19 @@ void setup() {
     centerX = M5Dial.Display.width() / 2;
     centerY = M5Dial.Display.height() / 2;
     R = M5Dial.Display.height() / 2; // Assuming a square or using height for radius
+
+    // --- Wi-Fi Connection ---
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    Serial.print("Connecting to WiFi...");
+    while (WiFi.status()!= WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+        // Optional: Add timeout logic
+    }
+    Serial.println("\nConnected!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
 
     Serial.println("Setup Complete. Waiting for GPS fix...");
 }
