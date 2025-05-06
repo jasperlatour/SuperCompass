@@ -56,5 +56,4 @@ void drawGpsInfo(M5Canvas& canvas, const TinyGPSPlus& gps, int centerX, int cent
  */
 void drawStatusMessage(M5Canvas& canvas, const char* message, int centerX, int yPos, uint16_t color = TFT_RED, uint16_t bgColor = TFT_WHITE);
 
-
 #endif // DRAWING_H

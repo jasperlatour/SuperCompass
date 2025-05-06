@@ -4,14 +4,15 @@
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
 
-// ---- NEW: WiFi and Web Server Includes ----
+// ---- WiFi, Web Server, HTTP Client, and JSON Includes ----
 #include <WiFi.h>
 #include <WebServer.h>
-// -----------------------------------------
+#include <HTTPClient.h>   // For making API requests
+#include <ArduinoJson.h>  // For parsing API responses
 
 #include "drawing.h"
 #include "calculations.h" // For calculateTargetBearing
-#include "config.h"
+#include "config.h"       // Make sure this includes your calibration constants etc.
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -25,26 +26,27 @@ MechaQMC5883 qmc;
 TinyGPSPlus gps;
 HardwareSerial GPS_Serial(1); // UART1 (RX=G2, TX=G1 for PortA)
 
-// Sensor Readings
-double a; // This seems unused, consider removing if not needed elsewhere
-int x, y, z; // Also seem unused in the provided loop, ensure they are for qmc or remove
-
-// Compass Display Geometry (calculated in setup/loop)
+// Compass Display Geometry
 int centerX, centerY, R;
 
-// ---- NEW: Web Server and Target Variables ----
-WebServer server(80); // Create a web server object on port 80
+// ---- Web Server and Target Variables ----
+WebServer server(80); // Web server on port 80
 
-// These will now be updated by the web interface, so not const
-double TARGET_LAT = 0.0; // Default or last known, can be updated
-double TARGET_LON = 0.0; // Default or last known, can be updated
+double TARGET_LAT = 0.0;
+double TARGET_LON = 0.0;
 
-// Variables for AP mode
+// ---- WiFi Credentials ----
+// IMPORTANT: Replace with your actual WiFi credentials for internet access
+const char *station_ssid = "Jappiepixel";         // Your network SSID (name)
+const char *station_password = "Latour69"; // Your network password
+
+// Variables for AP mode (fallback)
 const char *ap_ssid = "M5Dial-TargetSetter";
-const char *ap_password = "Lisvoort11"; // Change this! Or set to NULL for an open network
+const char *ap_password = "Lisvoort11"; // Or NULL for an open network
 
+String currentNetworkIP = "N/A"; // Variable to store the active IP address
 
-// ---- NEW: HTML Page Content and Handlers ----
+// ---- HTML Page Content and Handlers (Identical to previous version) ----
 String HTML_CONTENT = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -53,8 +55,9 @@ String HTML_CONTENT = R"rawliteral(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
         h1 { color: #007bff; text-align: center; }
+        h2 { margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px;}
         label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; }
         input[type="text"], input[type="number"] {
             width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ddd;
@@ -62,13 +65,11 @@ String HTML_CONTENT = R"rawliteral(
         }
         input[type="submit"] {
             background-color: #007bff; color: white; padding: 12px 20px; border: none;
-            border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%;
+            border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; margin-top: 10px;
         }
         input[type="submit"]:hover { background-color: #0056b3; }
-        .current-target { margin-top:20px; padding:10px; background-color:#e9ecef; border-radius:4px; }
-        .status-message { margin-top: 15px; padding: 10px; border-radius: 4px; text-align: center; }
-        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .current-target { margin-top:20px; margin-bottom:20px; padding:10px; background-color:#e9ecef; border-radius:4px; }
+        hr { margin-top: 30px; margin-bottom: 20px; border: 0; border-top: 1px solid #eee; }
     </style>
 </head>
 <body>
@@ -79,68 +80,36 @@ String HTML_CONTENT = R"rawliteral(
             Lat: <span id="current_lat_display">%.6f</span><br>
             Lon: <span id="current_lon_display">%.6f</span>
         </div>
+
+        <h2>Option 1: Set by Coordinates</h2>
         <form action="/settarget" method="POST">
             <label for="lat">Target Latitude:</label>
             <input type="number" step="any" id="lat" name="latitude" placeholder="e.g., 40.7128" required>
             <label for="lon">Target Longitude:</label>
             <input type="number" step="any" id="lon" name="longitude" placeholder="e.g., -74.0060" required>
-            <input type="submit" value="Set Target">
+            <input type="submit" value="Set Target by Lat/Lon">
         </form>
-        <div id="message-area"></div>
-    </div>
-    <script>
-        // Optional: Update display if form submission happens via AJAX or to reflect current state
-        // For this simple POST, the page will reload.
-        // If we wanted to make it more dynamic without full reload:
-        // document.getElementById('targetForm').addEventListener('submit', function(event) {
-        //     event.preventDefault();
-        //     // ... fetch logic ...
-        // });
-    </script>
+
+        <hr>
+
+        <h2>Option 2: Set by Address</h2>
+        <form action="/settargetbyaddress" method="POST">
+            <label for="address">Target Address:</label>
+            <input type="text" id="address" name="address" placeholder="e.g., Eiffeltoren, Parijs" required>
+            <input type="submit" value="Search Address & Set Target">
+        </form>
+        <div id="message-area"></div> </div>
 </body>
 </html>
 )rawliteral";
 
-void handleRoot() {
-    char buffer[HTML_CONTENT.length() + 200]; // Adjusted buffer size
-    sprintf(buffer, HTML_CONTENT.c_str(), TARGET_LAT, TARGET_LON);
-    server.send(200, "text/html", buffer);
-}
-
-void handleSetTarget() {
-    String message = "";
-    bool success = false;
-    if (server.hasArg("latitude") && server.hasArg("longitude")) {
-        String latStr = server.arg("latitude");
-        String lonStr = server.arg("longitude");
-
-        double tempLat = latStr.toDouble();
-        double tempLon = lonStr.toDouble();
-
-        // Basic validation
-        if (abs(tempLat) <= 90.0 && abs(tempLon) <= 180.0) {
-            TARGET_LAT = tempLat;
-            TARGET_LON = lonStr.toDouble(); // Re-parse to be sure, or use tempLon
-            Serial.print("New Target Latitude: "); Serial.println(TARGET_LAT, 6);
-            Serial.print("New Target Longitude: "); Serial.println(TARGET_LON, 6);
-            message = "Target updated successfully!<br>Lat: " + String(TARGET_LAT, 6) + "<br>Lon: " + String(TARGET_LON, 6);
-            success = true;
-        } else {
-            message = "Error: Invalid latitude or longitude values.";
-            Serial.println(message);
-        }
-    } else {
-        message = "Error: Missing latitude or longitude parameters.";
-        Serial.println(message);
-    }
-
-    // Send a response page
+void sendResponsePage(const String& title, const String& statusType, const String& headerMsg, const String& bodyMsg, int refreshDelay = 3) {
     String responseHtml = R"rawliteral(
-    <!DOCTYPE html><html><head><title>Target Status</title>
-    <meta http-equiv="refresh" content="3;url=/" />
+    <!DOCTYPE html><html><head><title>%s</title>
+    <meta http-equiv="refresh" content="%d;url=/" />
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
-        .message { padding: 15px; border-radius: 5px; margin: 20px auto; max-width: 400px; }
+        .message { padding: 15px; border-radius: 5px; margin: 20px auto; max-width: 500px; word-wrap: break-word; }
         .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         a { color: #007bff; text-decoration: none; }
@@ -148,102 +117,235 @@ void handleSetTarget() {
         <div class="message %s">
             <h1>%s</h1>
             <p>%s</p>
-            <p>Redirecting back in 3 seconds... or <a href="/">click here</a>.</p>
+            <p>Redirecting back in %d seconds... or <a href="/">click here</a>.</p>
         </div>
     </body></html>
     )rawliteral";
-
-    char buffer[responseHtml.length() + message.length() + 100];
-    sprintf(buffer, responseHtml.c_str(),
-            success ? "success" : "error",
-            success ? "Success!" : "Error!",
-            message.c_str());
+    size_t bufferSize = responseHtml.length() + title.length() + statusType.length() + headerMsg.length() + bodyMsg.length() + 20;
+    char* buffer = new char[bufferSize];
+    if (!buffer) {
+        Serial.println("Failed to allocate memory for response buffer!");
+        server.send(500, "text/plain", "Internal Server Error: Memory allocation failed.");
+        return;
+    }
+    sprintf(buffer, responseHtml.c_str(), title.c_str(), refreshDelay, statusType.c_str(), headerMsg.c_str(), bodyMsg.c_str(), refreshDelay);
     server.send(200, "text/html", buffer);
+    delete[] buffer;
+}
+
+void handleRoot() {
+    char buffer[HTML_CONTENT.length() + 200];
+    sprintf(buffer, HTML_CONTENT.c_str(), TARGET_LAT, TARGET_LON);
+    server.send(200, "text/html", buffer);
+}
+
+void handleSetTarget() {
+    String messageBody = "";
+    bool success = false;
+    if (server.hasArg("latitude") && server.hasArg("longitude")) {
+        String latStr = server.arg("latitude");
+        String lonStr = server.arg("longitude");
+        double tempLat = latStr.toDouble();
+        double tempLon = lonStr.toDouble();
+        if (abs(tempLat) <= 90.0 && abs(tempLon) <= 180.0) {
+            TARGET_LAT = tempLat;
+            TARGET_LON = tempLon;
+            Serial.print("New Target (Lat/Lon): "); Serial.print(TARGET_LAT, 6); Serial.print(", "); Serial.println(TARGET_LON, 6);
+            messageBody = "Target updated successfully!<br>Lat: " + String(TARGET_LAT, 6) + "<br>Lon: " + String(TARGET_LON, 6);
+            success = true;
+        } else {
+            messageBody = "Error: Invalid latitude or longitude values.";
+            Serial.println(messageBody);
+        }
+    } else {
+        messageBody = "Error: Missing latitude or longitude parameters.";
+        Serial.println(messageBody);
+    }
+    sendResponsePage("Target Status", success ? "success" : "error", success ? "Success!" : "Error!", messageBody);
+}
+
+void handleSetTargetByAddress() {
+    String address = "";
+    String messageBody = "";
+    bool geocodeOverallSuccess = false;
+
+    if (!server.hasArg("address")) {
+        messageBody = "Error: Address parameter missing.";
+        Serial.println(messageBody);
+        sendResponsePage("Geocoding Error", "error", "Error!", messageBody);
+        return;
+    }
+    address = server.arg("address");
+    Serial.print("Address received for geocoding: "); Serial.println(address);
+
+    if (WiFi.status() != WL_CONNECTED) { // Crucially checks if we have internet via STA mode
+        messageBody = "Error: M5Dial not connected to Wi-Fi with Internet access. Cannot geocode address.";
+        Serial.println(messageBody);
+        sendResponsePage("Geocoding Error", "error", "Network Error!", messageBody, 5);
+        return;
+    }
+
+    HTTPClient http;
+    String encodedAddress = "";
+    for (char c : address) {
+        if (isalnum(c) || c == ' ' || c == '-' || c == '_' || c == '.') {
+            encodedAddress += (c == ' ') ? "%20" : String(c);
+        } else {
+            char temp[4];
+            sprintf(temp, "%%%02X", (unsigned char)c);
+            encodedAddress += temp;
+        }
+    }
+    String url = "https://nominatim.openstreetmap.org/search?q=" + encodedAddress + "&format=json&limit=1&addressdetails=0&extratags=0&namedetails=0";
+    Serial.print("Geocoding URL: "); Serial.println(url);
+    http.begin(url);
+    http.setUserAgent("M5Dial-CompassNav/1.0 (m5dial.user@example.com)"); // CUSTOMIZE THIS
+    int httpCode = http.GET();
+    double foundLat = 0.0, foundLon = 0.0;
+    bool geocodeApiSuccess = false;
+
+    if (httpCode > 0) {
+        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+        if (httpCode == HTTP_CODE_OK) {
+            String payload = http.getString();
+            Serial.println("Payload received:\n" + payload);
+            StaticJsonDocument<1024> doc; // Adjust size (1024) based on expected JSON payload
+            DeserializationError error = deserializeJson(doc, payload);
+            if (error) {
+                Serial.print(F("deserializeJson() failed: ")); Serial.println(error.f_str());
+                messageBody = "Failed to parse geocoding API response. Error: " + String(error.f_str());
+            } else {
+                if (doc.is<JsonArray>() && doc.as<JsonArray>().size() > 0) {
+                    JsonObject firstResult = doc.as<JsonArray>()[0];
+                    if (firstResult.containsKey("lat") && firstResult.containsKey("lon")) {
+                        foundLat = firstResult["lat"].as<String>().toDouble();
+                        foundLon = firstResult["lon"].as<String>().toDouble();
+                        geocodeApiSuccess = true;
+                    } else { messageBody = "Latitude or Longitude not found in API response."; Serial.println(messageBody); }
+                } else { messageBody = "No results found for the address, or unexpected API response format."; Serial.println(messageBody); }
+            }
+        } else { messageBody = "Geocoding API request failed. HTTP Error: " + String(httpCode) + " " + http.errorToString(httpCode); Serial.println(messageBody); }
+    } else { messageBody = "Geocoding API request failed. Error: " + http.errorToString(httpCode); Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str()); }
+    http.end();
+
+    if (geocodeApiSuccess) {
+        if (abs(foundLat) <= 90.0 && abs(foundLon) <= 180.0) {
+            TARGET_LAT = foundLat; TARGET_LON = foundLon;
+            Serial.print("New Target (Address: '"); Serial.print(address); Serial.print("'): "); Serial.print(TARGET_LAT, 6); Serial.print(", "); Serial.println(TARGET_LON, 6);
+            messageBody = "Target updated from address: <b>" + address + "</b><br>Lat: " + String(TARGET_LAT, 6) + "<br>Lon: " + String(TARGET_LON, 6);
+            geocodeOverallSuccess = true;
+        } else { messageBody = "Error: Invalid latitude/longitude values received from geocoding API."; Serial.println(messageBody); }
+    } else { if (messageBody.isEmpty()) messageBody = "Could not geocode address. Unknown error."; }
+    sendResponsePage("Geocoding Status", geocodeOverallSuccess ? "success" : "error", geocodeOverallSuccess ? "Success!" : "Geocoding Error!", messageBody, geocodeOverallSuccess ? 3 : 7);
 }
 
 void handleNotFound() {
     server.send(404, "text/plain", "404: Not found");
 }
-// -----------------------------------------------
 
 
 void setup() {
     Serial.begin(115200);
     auto cfg = M5.config();
     M5Dial.begin(cfg, true, true);
-    M5Dial.Display.setBrightness(30); // Slightly brighter for IP visibility
+    M5Dial.Display.setBrightness(50);
 
-    // ---- Show "Starting AP" message ----
     M5Dial.Display.fillScreen(TFT_BLACK);
     M5Dial.Display.setTextDatum(MC_DATUM);
     M5Dial.Display.setTextSize(2);
-    M5Dial.Display.drawString("Starting AP...", M5Dial.Display.width() / 2, M5Dial.Display.height() / 2 - 20);
-    // ------------------------------------
+    M5Dial.Display.drawString("Initializing...", M5Dial.Display.width() / 2, M5Dial.Display.height() / 2 - 70);
 
-    // Initialize GPS Serial
-    GPS_Serial.begin(9600, SERIAL_8N1, 1, 2); // PortA default: TX=G1, RX=G2 on M5Dial
-
-    // Create the canvas (off-screen buffer)
+    GPS_Serial.begin(9600, SERIAL_8N1, 1, 2);
     canvas.createSprite(M5Dial.Display.width(), M5Dial.Display.height());
-
-    // Initialize the compass sensor
-    Wire.begin(); // SDA, SCL for M5Dial are typically G5, G6 if using PortB, or internal pins
-                  // If QMC5883 is on I2C Port A (Grove), pins are G2 (SDA), G1 (SCL)
-                  // Your GPS_Serial uses G1, G2. So QMC5883 cannot be on Port A's I2C if GPS is on Port A's UART.
-                  // The M5Dial has an internal I2C bus (G32/G33 usually) for built-in sensors.
-                  // Assuming QMC5883 is connected to the main I2C bus.
+    Wire.begin();
     qmc.init();
 
-    // Calculate compass geometry once
     centerX = M5Dial.Display.width() / 2;
     centerY = M5Dial.Display.height() / 2;
-    R = M5Dial.Display.height() / 2;
+    R = M5Dial.Display.height() / 2 - 5;
 
+    // ---- MODIFIED Wi-Fi Setup ----
+    M5Dial.Display.setTextSize(1); // Smaller text for IP display
+    M5Dial.Display.drawString("Connecting to WiFi:", centerX, M5Dial.Display.height() / 2 - 45);
+    M5Dial.Display.drawString(station_ssid, centerX, M5Dial.Display.height() / 2 - 30);
 
-    // ---- Wi-Fi Access Point Setup ----
-    Serial.print("Setting up AP: "); Serial.println(ap_ssid);
-    M5Dial.Display.drawString(ap_ssid, M5Dial.Display.width() / 2, M5Dial.Display.height() / 2 + 10);
+    WiFi.mode(WIFI_STA); // Explicitly set to Station mode
+    WiFi.begin(station_ssid, station_password);
 
-    WiFi.softAP(ap_ssid, ap_password); // Password can be NULL for an open network
+    int connect_timeout = 20; // 10 seconds timeout (20 * 500ms)
+    String dots = "";
+    while (WiFi.status() != WL_CONNECTED && connect_timeout > 0) {
+        delay(500);
+        Serial.print(".");
+        dots += ".";
+        M5Dial.Display.fillRect(centerX - 20, M5Dial.Display.height() / 2 - 15, 40, 10, TFT_BLACK); // Clear previous dots
+        M5Dial.Display.drawString(dots, centerX, M5Dial.Display.height() / 2 - 10);
+        connect_timeout--;
+        if (dots.length() > 10) dots = ""; // Reset dots string
+    }
+    M5Dial.Display.fillRect(0, M5Dial.Display.height() / 2 - 20, M5Dial.Display.width(), 20, TFT_BLACK); // Clear progress area
 
-    IPAddress myIP = WiFi.softAPIP();
-    Serial.print("AP IP address: "); Serial.println(myIP);
-
-    M5Dial.Display.setTextSize(2); // Reset for IP
-    M5Dial.Display.drawString("IP:", M5Dial.Display.width() / 2 - 30, M5Dial.Display.height() / 2 + 40);
-    M5Dial.Display.drawString(myIP.toString(), M5Dial.Display.width() / 2 + 40 , M5Dial.Display.height() / 2 + 40); // Adjust x offset
-    // -------------------------------
+    bool serverShouldStart = false;
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\nConnected to WiFi (STA mode)!");
+        currentNetworkIP = WiFi.localIP().toString();
+        Serial.print("STA IP Address: "); Serial.println(currentNetworkIP);
+        M5Dial.Display.drawString("WiFi Connected!", centerX, M5Dial.Display.height() / 2 - 15);
+        M5Dial.Display.drawString("IP: " + currentNetworkIP, centerX, M5Dial.Display.height() / 2);
+        serverShouldStart = true;
+    } else {
+        Serial.println("\nFailed to connect to WiFi network. Falling back to AP mode.");
+        M5Dial.Display.drawString("STA WiFi Failed.", centerX, M5Dial.Display.height() / 2 - 15);
+        M5Dial.Display.drawString("Starting AP...", centerX, M5Dial.Display.height() / 2);
+        
+        WiFi.mode(WIFI_AP); // Switch to AP mode
+        WiFi.softAP(ap_ssid, ap_password);
+        delay(100); // Allow AP to initialize
+        
+        currentNetworkIP = WiFi.softAPIP().toString();
+        Serial.print("AP Mode Enabled. IP Address: "); Serial.println(currentNetworkIP);
+        M5Dial.Display.fillRect(0, M5Dial.Display.height() / 2 -5, M5Dial.Display.width(), 20, TFT_BLACK); // Clear "Starting AP..."
+        M5Dial.Display.drawString("AP Mode Active", centerX, M5Dial.Display.height() / 2 -5);
+        M5Dial.Display.drawString("IP: " + currentNetworkIP, centerX, M5Dial.Display.height() / 2 + 10);
+        serverShouldStart = true; // Start server on AP IP
+    }
 
     // ---- Web Server Setup ----
-    server.on("/", HTTP_GET, handleRoot);
-    server.on("/settarget", HTTP_POST, handleSetTarget); // Handle POST requests for setting target
-    server.onNotFound(handleNotFound);
-    server.begin(); // Start the server
-    Serial.println("HTTP server started");
-    M5Dial.Display.drawString("Server ON", M5Dial.Display.width() / 2, M5Dial.Display.height() / 2 + 70);
-    // --------------------------
+    if (serverShouldStart) {
+        server.on("/", HTTP_GET, handleRoot);
+        server.on("/settarget", HTTP_POST, handleSetTarget);
+        server.on("/settargetbyaddress", HTTP_POST, handleSetTargetByAddress);
+        server.onNotFound(handleNotFound);
+        server.begin();
+        Serial.println("HTTP server started on IP: " + currentNetworkIP);
+        M5Dial.Display.drawString("Server ON", centerX, M5Dial.Display.height() / 2 + 25);
+    } else {
+        Serial.println("Web server NOT started (No network connection possible).");
+        M5Dial.Display.drawString("No Network!", centerX, M5Dial.Display.height() / 2 + 25);
+        // currentNetworkIP remains "N/A" or the last attempted IP.
+    }
 
-    delay(3000); // Display AP info for a few seconds
-    M5Dial.Display.setTextDatum(TL_DATUM); // Reset datum for normal drawing
-    M5Dial.Display.setTextSize(1); // Reset text size
+    delay(4000); // Display IP info for a few seconds
+    M5Dial.Display.setTextDatum(TL_DATUM);
+    M5Dial.Display.setTextSize(1);
 
     Serial.println("Setup Complete. Waiting for GPS fix...");
 }
 
 void loop() {
-    M5.update();         // Handle M5Dial events
-    server.handleClient(); // ---- NEW: Handle web server client requests ----
+    M5.update();
+    server.handleClient();
 
-    // --- GPS Processing ---
     bool gpsDataUpdated = false;
     while (GPS_Serial.available() > 0) {
         if (gps.encode(GPS_Serial.read())) {
-            gpsDataUpdated = true; // A complete sentence was processed
+            gpsDataUpdated = true;
         }
     }
 
-    // --- Heading Calculation ---
-    // (Ensure variables like offset_x, scale_y, MAGNETIC_DECLINATION, etc. are correctly defined in config.h or globally)
+    // (Compass and Target Calculation Logic - identical to previous version)
+    // Ensure these are defined in config.h: offset_x, offset_y, scale_x, scale_y, MAGNETIC_DECLINATION
+    // Also HEADING_SMOOTHING_FACTOR, firstHeadingReading, smoothedHeadingX, smoothedHeadingY
     double rawTrueHeading = calculateTrueHeading(qmc, offset_x, offset_y, scale_x, scale_y, MAGNETIC_DECLINATION);
     double rawTrueHeading_rad = rawTrueHeading * M_PI / 180.0;
 
@@ -265,39 +367,40 @@ void loop() {
     double trueHeading_rad = smoothedHeading_rad;
     double trueHeading = smoothedHeading_deg;
 
-
-    // --- Target Calculation ---
     double targetBearing = 0.0;
-    double arrowAngle = 0.0; // This is angle relative to North to point the arrow on screen
-    bool locationIsValid = gps.location.isValid() && gps.location.age() < 2000; // Valid & recent fix
-    bool targetIsSet = (TARGET_LAT != 0.0 || TARGET_LON != 0.0); // Consider a target set if not default 0,0
+    double arrowAngle = 0.0;
+    bool locationIsValid = gps.location.isValid() && gps.location.age() < 3000;
+    bool targetIsSet = (TARGET_LAT != 0.0 || TARGET_LON != 0.0);
 
     if (locationIsValid && targetIsSet) {
         double currentLat = gps.location.lat();
         double currentLon = gps.location.lng();
-        targetBearing = calculateTargetBearing(currentLat, currentLon, TARGET_LAT, TARGET_LON); // Bearing from current to target
-        
-        // Arrow angle on compass display needs to be relative to the current heading of the device
+        targetBearing = calculateTargetBearing(currentLat, currentLon, TARGET_LAT, TARGET_LON);
         arrowAngle = targetBearing - trueHeading;
-        arrowAngle = fmod(arrowAngle + 360.0, 360.0); // Normalize arrow angle 0-360
+        arrowAngle = fmod(arrowAngle + 360.0, 360.0);
     }
 
-    // --- Drawing ---
+    // (Drawing Logic - update for IP display if needed)
     drawCompassBackgroundToCanvas(canvas, centerX, centerY, R);
-    drawCompassLabels(canvas, trueHeading_rad, centerX, centerY, R); // Pass smoothed heading in radians
-    drawGpsInfo(canvas, gps, centerX, centerY); // Pass the whole gps object
+    drawCompassLabels(canvas, trueHeading_rad, centerX, centerY, R);
+    drawGpsInfo(canvas, gps, centerX, centerY);
 
     if (!locationIsValid) {
         drawStatusMessage(canvas, "Need GPS Fix", centerX, centerY + R - 60, 2, TFT_ORANGE);
     } else if (!targetIsSet) {
+        // currentNetworkIP holds the IP address from setup (either STA or AP fallback)
         drawStatusMessage(canvas, "Set Target via WiFi", centerX, centerY + R - 70, 1, TFT_CYAN);
-        drawStatusMessage(canvas, WiFi.softAPIP().toString().c_str(), centerX, centerY + R - 50, 1, TFT_CYAN);
-    } else { // Both GPS is valid and Target is set
-        drawTargetArrow(canvas, arrowAngle, centerX, centerY, R); // Pass the final arrowAngle
+        if (currentNetworkIP != "N/A") {
+             drawStatusMessage(canvas, currentNetworkIP.c_str(), centerX, centerY + R - 50, 1, TFT_CYAN);
+        } else {
+             drawStatusMessage(canvas, "No Network IP", centerX, centerY + R - 50, 1, TFT_RED);
+        }
+    } else {
+        drawTargetArrow(canvas, arrowAngle, centerX, centerY, R);
     }
 
-    // --- Push Sprite to Screen ---
     canvas.pushSprite(0, 0);
-
-    delay(50); // Aim for ~20 FPS. Web server handling might add slight, variable delays.
+    delay(50);
 }
+
+// Ensure you have your drawing.h, calculations.h, and config.h files correctly set up.
