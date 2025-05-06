@@ -1,8 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
-
-double TARGET_LAT = 48.8584;   
-double TARGET_LON = 2.2945;   
+ 
 
 const float MAGNETIC_DECLINATION = 2; // Example: 1.5° West declination
 const float offset_x = 345.0;
