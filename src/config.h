@@ -1,25 +1,38 @@
 #ifndef CONFIG_H
 #define CONFIG_H
- 
 
-const float MAGNETIC_DECLINATION = 2; // Example: 1.5° West declination
-const float offset_x = 345.0;
-const float offset_y = -196.0;
+// ---- WiFi Credentials ----
+// Declared here, defined in your main .ino or a config.cpp
+extern const char *station_ssid;
+extern const char *station_password;
 
-// Calibration offsets for the QMC5883 sensor
-const float scale_x = 0.996644295;
-const float scale_y = 1.003378378;
+// ---- AP Mode Credentials (Fallback) ----
+extern const char *ap_ssid;
+extern const char *ap_password;
 
-// --- Smoothing Parameters ---
-const float HEADING_SMOOTHING_FACTOR = 0.6; // Adjust between 0.0 (heavy smoothing) and 1.0 (no smoothing)
-double smoothedHeadingX = 0.0;
-double smoothedHeadingY = 0.0;
-bool firstHeadingReading = true; 
+// ---- Sensor Calibration Constants ----
+extern const int offset_x;
+extern const int offset_y;
+extern const float scale_x;
+extern const float scale_y;
+extern const double MAGNETIC_DECLINATION;
 
-//network credentials
-// Network Credentials (Consider using WiFiManager for production)
-const char* ssid = "Just One Byte";
-const char* password = "Brandevoort11";
+// ---- Navigation Logic Constants ----
+extern const float HEADING_SMOOTHING_FACTOR;
 
+// ---- Geocoding API ----
+extern const char* GEOCODING_USER_AGENT;
 
-#endif 
+// ---- Mathematical Constants ----
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+// IMPORTANT:
+// The following variables (firstHeadingReading, smoothedHeadingX, smoothedHeadingY)
+// should NOT be in this file.
+// They are global state variables.
+// Define them in your main .ino file and declare them 'extern' in globals_and_includes.h.
+// Your error messages indicate they are currently in your config.h - REMOVE THEM FROM HERE.
+
+#endif // CONFIG_H
