@@ -2,8 +2,7 @@
 #ifndef DRAWING_H
 #define DRAWING_H
 
-#include "M5Dial.h"     // For M5Canvas, color constants
-#include <TinyGPS++.h> // For TinyGPSPlus type
+#include "globals_and_includes.h" 
 
 // Function declarations
 
