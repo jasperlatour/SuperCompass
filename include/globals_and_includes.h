@@ -5,6 +5,7 @@
 #include "M5Dial.h"
 #include <math.h>         // For cos(), sin(), atan2(), fmod(), M_PI
 
+
 // ---- Sensor Libraries ----
 #include <MechaQMC5883.h> // For the QMC5883 compass sensor
 #include <TinyGPS++.h>
@@ -17,7 +18,8 @@
 #include <ArduinoJson.h>  // For parsing API responses
 
 // ---- Custom Project Headers ----
-#include "config.h"       // Contains credentials, calibration, etc.
+#include "config.h" 
+#include "icons.h"        // Contains credentials, calibration, etc.
 // Forward declare functions from drawing.h and calculations.h or include them if no circular dependencies
 // #include "drawing.h"
 // #include "calculations.h"
