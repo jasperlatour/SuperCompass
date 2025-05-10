@@ -13,14 +13,17 @@ typedef struct {
 extern bool savedLocationsMenuActive; 
 extern int selectedLocationIndex;    
 
-
-extern const int MAX_SAVED_LOCATIONS; 
-extern SavedLocation savedLocations[];  
+extern std::vector<SavedLocation> savedLocations;
 extern int numActualSavedLocations;   
 
-// ADDED: Functions for saved locations page
+// Functions for persistence
+void loadSavedLocations(); // Call this in setup()
+void saveSavedLocations(); // Call this after any modification
+
 void initSavedLocationsMenu();
 void handleSavedLocationsInput();
 void drawSavedLocationsMenu(M5Canvas &canvas, int centerX, int centerY);
+
+
 
 #endif // saved_locations_h

@@ -4,6 +4,7 @@
 #include "globals_and_includes.h" // For WebServer, String, TARGET_LAT/LON, etc.
 #include "html_content.h"         // For HTML_PAGE_TEMPLATE, HTML_RESPONSE_TEMPLATE
 
+
 // Function to send a formatted HTML response page
 void sendDynamicResponsePage(const String& title, const String& statusType, const String& headerMsg, const String& bodyMsg, int refreshDelay = 3);
 
@@ -12,6 +13,12 @@ void handleRoot();
 void handleSetTarget();
 void handleSetTargetByAddress();
 void handleNotFound();
+
+void handleManageLocationsPage();
+void handleGetLocationsJson();
+void handleAddLocation();
+void handleGeocodeForAdd(); 
+void handleDeleteLocation();
 
 // Function to set up all server routes
 void setupServerRoutes();

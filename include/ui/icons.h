@@ -16,6 +16,7 @@ extern const tImage icon_temp;
 extern const tImage icon_more;
 extern const tImage icon_wifi;
 extern const tImage icon_compass;
+extern const tImage icon_target;
 
 
 #endif // ICONS_H

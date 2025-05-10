@@ -15,6 +15,8 @@
 #include <WebServer.h>
 #include <HTTPClient.h>   // For making API requests
 #include <ArduinoJson.h>  // For parsing API responses
+#include <FS.h>
+#include <SPIFFS.h>
 
 // ---- Custom Project Headers ----
 #include "config.h" 
