@@ -1,6 +1,8 @@
 // filepath: c:\Users\latou\Git Repo's Pesronal\SuperCompass\src\menu.cpp
 #include "menu.h"
 
+
+
 int selectedLocationIndex = 0;       
 int selectedMenuItemIndex = 0;
 
@@ -40,7 +42,7 @@ void action_showSavedLocations() {
 MenuItem menuItems[NUM_ITEMS] = {
     {"Navigate", action_startNavigation, &icon_compass},
     {"Settings", action_showSettings,    &icon_more},
-    {"select target", action_showSavedLocations,     &icon_wifi},
+    {"select target", action_showSavedLocations,     &icon_target},
     {"Item 4",   action_showGpsInfo,     &icon_more},
     {"Item 5",   action_showGpsInfo,     &icon_wifi}
 };

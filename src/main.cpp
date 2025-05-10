@@ -10,7 +10,6 @@ bool savedLocationsMenuActive = false;
 #include "calculations.h"
 #include "menu.h" 
 
-
 // ---- Global Object Definitions (reeds 'extern' verklaard in globals_and_includes.h) ----
 M5Canvas canvas(&M5Dial.Display);
 MechaQMC5883 qmc;
@@ -24,9 +23,6 @@ String currentNetworkIP = "N/A";
 String Setaddress = "";
 bool targetIsSet = false;
 
-
-
-// Compass Display Geometry (geïnitialiseerd in initializeHardwareAndSensors)
 int centerX, centerY, R;
 
 void setup() {
@@ -60,7 +56,15 @@ void setup() {
     Serial.println(F("Displaying IP info for a few seconds..."));
     delay(2000); // Iets kortere delay
 
+    Serial.println("Mounting FileSystem...");
+    if (!SPIFFS.begin(true)) {                       
+        Serial.println("FATAL: FileSystem Mount Failed. Halting.");
+        while (1) { delay(1000); } 
+    }
+    Serial.println("FileSystem mounted successfully.");
+
     initMenu(); // Initialiseer het menu
+    loadSavedLocations();
 
     // Bereid display voor main loop (kan overschreven worden door menu of andere schermen)
     M5Dial.Display.fillScreen(TFT_BLACK);
@@ -85,8 +89,6 @@ void loop() {
         drawSavedLocationsMenu(canvas, centerX, centerY);
         canvas.pushSprite(0, 0); 
     } else {
-        // --- Jouw bestaande applicatielogica (als het menu niet actief is) ---
-        // Dit is de "Navigate" modus of een andere modus geselecteerd vanuit het menu
         processGpsData();
 
         double currentHeadingDegrees = getSmoothedHeadingDegrees();
