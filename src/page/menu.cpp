@@ -46,7 +46,7 @@ MenuItem menuItems[NUM_ITEMS] = {
 };
 
 
-int numActualSavedLocations = 3; 
+
 
 void drawAppMenu(M5Canvas &canvas, int centerX, int centerY, int radius, int arrowSize) {
     canvas.fillSprite(TFT_BLACK);
