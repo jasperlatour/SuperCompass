@@ -4,12 +4,14 @@
 
 // ---  Saved Locations Data ---
 const int MAX_SAVED_LOCATIONS = 5; // Example: Max 5 saved locations
+int numActualSavedLocations = 5; 
 SavedLocation savedLocations[MAX_SAVED_LOCATIONS] = {
-    {"Eindhoven", 51.4392648, 5.478633},      
-    {"Work", 51.4790956, 5.6557686},      
-    {"Parijs", 48.8534951, 2.3483915}       
+    {"Eindhoven", 51.4392648, 5.478633},
+    {"Helmond", 51.4790956, 5.6557686},
+    {"Parijs", 48.8534951, 2.3483915},
+    {"Amsterdam", 52.3676, 4.9041}, // Example: Amsterdam
+    {"Berlin", 52.5200, 13.4050} // Example: Berlin
 };
-
 
 void initSavedLocationsMenu() {
     selectedLocationIndex = 0;
@@ -17,34 +19,48 @@ void initSavedLocationsMenu() {
     Serial.println("Saved Locations Menu Initialized");
 }
 
-
 void drawSavedLocationsMenu(M5Canvas &canvas, int centerX, int centerY) {
     canvas.fillSprite(TFT_BLACK);
-    canvas.setTextDatum(MC_DATUM);
+    canvas.setTextDatum(MC_DATUM); // Center datum for all text
     canvas.setTextColor(TFT_WHITE);
+
+    // Draw Title
     canvas.setTextSize(2);
-    canvas.drawString("Saved Locations", centerX, 20);
+    canvas.drawString("Saved Locations", centerX, 50);
 
-    canvas.setTextSize(1);
-    canvas.setTextDatum(ML_DATUM); // Middle Left for list items
-    int startY = 50;
-    int lineHeight = 20;
+    // Define Y positions for the items
+    int selectedY = centerY; // Center for the selected item
+    int prevY = centerY - 50; // Position for the previous item
+    int nextY = centerY + 50; // Position for the next item
 
-    for (int i = 0; i < numActualSavedLocations; ++i) {
-        if (i == selectedLocationIndex) {
-            canvas.setTextColor(TFT_YELLOW); // Highlight selected item
-            canvas.drawString("> " + String(savedLocations[i].name), 20, startY + i * lineHeight);
-        } else {
-            canvas.setTextColor(TFT_WHITE);
-            canvas.drawString(String(savedLocations[i].name), 30, startY + i * lineHeight);
-        }
+    // Display Previous Item (with wrap around)
+    if (numActualSavedLocations > 1) { // Only show if there's more than one item
+        int prevIndex = (selectedLocationIndex - 1 + numActualSavedLocations) % numActualSavedLocations;
+        canvas.setTextSize(1); // Smaller font size
+        canvas.setTextColor(TFT_WHITE);
+        canvas.drawString(String(savedLocations[prevIndex].name), centerX, prevY);
     }
-    // Add a "Back" option drawn at the bottom if desired, or rely on long press
-    canvas.setTextDatum(MC_DATUM);
-    canvas.setTextColor(TFT_CYAN);
-    canvas.drawString("Press to Select", centerX, canvas.height() - 30);
-    canvas.drawString("Hold Btn for Main Menu", centerX, canvas.height() - 15);
 
+    // Display Selected Item
+    if (numActualSavedLocations > 0) { // Ensure there's at least one item to display
+        canvas.setTextSize(3); // Larger font size
+        canvas.setTextColor(TFT_YELLOW); // Highlight selected item
+        canvas.drawString(String(savedLocations[selectedLocationIndex].name), centerX, selectedY);
+    }
+
+
+    // Display Next Item (with wrap around)
+    if (numActualSavedLocations > 1) { // Only show if there's more than one item
+        int nextIndex = (selectedLocationIndex + 1) % numActualSavedLocations;
+        canvas.setTextSize(1); // Smaller font size
+        canvas.setTextColor(TFT_WHITE);
+        canvas.drawString(String(savedLocations[nextIndex].name), centerX, nextY);
+    }
+
+    // Footer instructions
+    canvas.setTextSize(1); // Reset text size for footer
+    canvas.setTextColor(TFT_CYAN);
+    canvas.drawString("Press to Select", centerX, canvas.height() - 25);
 }
 
 
@@ -88,13 +104,5 @@ void handleSavedLocationsInput() {
         savedLocationsMenuActive = false; // Exit saved locations menu
         menuActive = false;             // Ensure main menu is also off, go to navigation
         // Screen will be redrawn by main loop's navigation logic
-    }
-
-    // Optional: Handle long press to go back to main menu
-    if (M5.BtnA.wasHold()) {
-        Serial.println("Returning to main menu from saved locations...");
-        savedLocationsMenuActive = false;
-        menuActive = true;
-        initMenu(); // Re-initialize main menu
     }
 }
