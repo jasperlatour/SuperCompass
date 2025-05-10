@@ -134,5 +134,5 @@ void loop() {
             M5Dial.Display.fillScreen(TFT_BLACK); // Wis scherm voordat menu getekend wordt
         }
     }
-    delay(50); // Algemene delay, pas aan indien nodig voor responsiviteit
+
 }
