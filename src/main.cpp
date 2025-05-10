@@ -1,3 +1,6 @@
+bool menuActive = false;
+bool savedLocationsMenuActive = false;
+
 // ---- Includes ----
 #include "globals_and_includes.h" // Includes config.h
 #include "web_handlers.h"
@@ -19,6 +22,9 @@ double TARGET_LAT = 0.0;
 double TARGET_LON = 0.0;
 String currentNetworkIP = "N/A";
 String Setaddress = "";
+bool targetIsSet = false;
+
+
 
 // Compass Display Geometry (geïnitialiseerd in initializeHardwareAndSensors)
 int centerX, centerY, R;
@@ -74,6 +80,10 @@ void loop() {
         // De straal R/2 is een gok, pas aan voor de gewenste grootte van het cirkelmenu
         drawAppMenu(canvas, centerX, centerY, R / 2, 32);
         canvas.pushSprite(0, 0); // Push de getekende canvas naar het display
+    }else if (savedLocationsMenuActive) { // ADDED: Handle saved locations menu
+        handleSavedLocationsInput();
+        drawSavedLocationsMenu(canvas, centerX, centerY);
+        canvas.pushSprite(0, 0); 
     } else {
         // --- Jouw bestaande applicatielogica (als het menu niet actief is) ---
         // Dit is de "Navigate" modus of een andere modus geselecteerd vanuit het menu

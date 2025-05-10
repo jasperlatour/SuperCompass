@@ -5,7 +5,6 @@
 #include "M5Dial.h"
 #include <math.h>         // For cos(), sin(), atan2(), fmod(), M_PI
 
-
 // ---- Sensor Libraries ----
 #include <MechaQMC5883.h> // For the QMC5883 compass sensor
 #include <TinyGPS++.h>
@@ -19,12 +18,11 @@
 
 // ---- Custom Project Headers ----
 #include "config.h" 
-#include "icons.h"        // Contains credentials, calibration, etc.
+#include "icons.h"        
 // Forward declare functions from drawing.h and calculations.h or include them if no circular dependencies
 // #include "drawing.h"
 // #include "calculations.h"
 
-// ---- Global Object & Variable Declarations (defined in .ino) ----
 
 // M5Dial Display Canvas
 extern M5Canvas canvas;
@@ -52,5 +50,14 @@ extern String Setaddress; // Geocoded address string
 extern double smoothedHeadingX;
 extern double smoothedHeadingY;
 extern bool firstHeadingReading;
+
+extern bool menuActive;
+extern bool savedLocationsMenuActive;
+
+// Encoder Variables
+static int encoder_click_accumulator = 0;
+const int ENCODER_COUNTS_PER_DETENT = 4;
+
+extern bool targetIsSet;
 
 #endif // GLOBALS_AND_INCLUDES_H
