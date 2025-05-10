@@ -35,7 +35,7 @@ void action_showGpsInfo() { // Definitie
 
 
 MenuItem menuItems[NUM_ITEMS] = {
-    {"Navigate", action_startNavigation, &icon_temp},
+    {"Navigate", action_startNavigation, &icon_compass},
     {"Settings", action_showSettings,    &icon_more},
     {"GPS Info", action_showGpsInfo,     &icon_wifi},
     {"Item 4",   action_showGpsInfo,     &icon_more},

@@ -130,7 +130,7 @@ void handleSetTargetByAddress() {
             //Serial.println(payload); // Can be very long
 
             // Increased JSON document size for potentially larger responses
-            StaticJsonDocument<2048> doc; // Adjust size as needed (was 1024)
+            DynamicJsonDocument doc(2048); // Adjust size as needed (was 1024)
             DeserializationError error = deserializeJson(doc, payload);
 
             if (error) {
