@@ -15,6 +15,7 @@ typedef struct {
 extern const tImage icon_temp;
 extern const tImage icon_more;
 extern const tImage icon_wifi;
+extern const tImage icon_compass;
 
 
 #endif // ICONS_H
