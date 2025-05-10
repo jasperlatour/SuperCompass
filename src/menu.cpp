@@ -2,12 +2,14 @@
 #include "menu.h"
 #include "drawing.h"
 #include "icons.h"
-#include "bt.h" // Include bt.h
 
 // Define the global variables that were declared as extern in menu.h
 bool menuActive = false; // Or true, depending on your desired initial state
 
 int selectedMenuItemIndex = 0;
+static int encoder_click_accumulator = 0;
+const int ENCODER_COUNTS_PER_DETENT = 4;
+
 
 // Define the actions for the menu-items
 void action_startNavigation() { // Definitie
@@ -27,84 +29,97 @@ void action_showGpsInfo() { // Definitie
 }
 
 // Define your menu-items WITH RawIconData pointers
-#define NUM_ITEMS 3
+#define NUM_ITEMS 5
 
-// Forward declarations of the icons
-extern const uint16_t image_data_icon_ble[1764];
 
-// Define tImage instances for your icons
-tImage icon_tracker_image = {(uint16_t*)tracker_pixel_data, 36, 36, 1}; // Assuming 1 bit depth
-tImage icon_settings_image = {(uint16_t*)settings_pixel_data, 36, 36, 1}; // Assuming 1 bit depth
-tImage icon_info_image = {(uint16_t*)info_pixel_data, 36, 36, 1}; // Assuming 1 bit depth
-tImage icon_ble_image = {(uint16_t*)image_data_icon_ble, 42, 42, 16};
+
 
 MenuItem menuItems[NUM_ITEMS] = {
-    {"Navigate", action_startNavigation, &icon_tracker_image},
-    {"Settings", action_showSettings,    &icon_settings_image},
-    {"GPS Info", action_showGpsInfo,     &icon_info_image}
+    {"Navigate", action_startNavigation, &icon_temp},
+    {"Settings", action_showSettings,    &icon_more},
+    {"GPS Info", action_showGpsInfo,     &icon_wifi},
+    {"Item 4",   action_showGpsInfo,     &icon_more},
+    {"Item 5",   action_showGpsInfo,     &icon_wifi}
 };
 
 void drawAppMenu(M5Canvas &canvas, int centerX, int centerY, int radius, int arrowSize) {
     canvas.fillSprite(TFT_BLACK);
-    canvas.setTextDatum(MC_DATUM);
+    canvas.setTextDatum(MC_DATUM); // Middle Center datum for text
 
+    int placement_radius = static_cast<int>(centerX * 0.78f); 
     // Calculate the angle step based on the number of menu items
-    float angle_step_degrees = 360.0f / numMenuItems;
+    float angle_step_degrees = 360.0f / NUM_ITEMS;
 
-    // Define the base angle for the selected item (e.g., at the top)
-    const float selected_angle_degrees = 90.0f;
+    // Define the starting angle for the first item (e.g., 90.0f for the top of the circle)
+    const float start_angle_degrees = 90.0f;
 
-    int arrowX = centerX + cos(selected_angle_degrees * DEG_TO_RAD) * (radius + 10);
-    int arrowY = centerY - sin(selected_angle_degrees * DEG_TO_RAD) * (radius + 10);
-    canvas.drawXBitmap(arrowX - arrowSize / 2, arrowY - arrowSize / 2, arrow_32x32_map, arrowSize, arrowSize, TFT_WHITE);
+    const char* selectedItemName = nullptr; // To store the name of the selected item
 
-    for (int i = 0; i < numMenuItems; ++i) {
-        // Calculate the angle for the current item relative to the selected item
-        float current_item_display_angle_deg = selected_angle_degrees - (i - selectedMenuItemIndex) * angle_step_degrees;
+    for (int i = 0; i < NUM_ITEMS; ++i) {
+        // Calculate the fixed angle for the current item.
+        // Items will be placed clockwise starting from start_angle_degrees.
+        float item_angle_deg = start_angle_degrees - (i * angle_step_degrees);
 
-        // Adjust the angle to be within 0-360 degrees
-        current_item_display_angle_deg = fmod(current_item_display_angle_deg, 360.0f);
-        if (current_item_display_angle_deg < 0) {
-            current_item_display_angle_deg += 360.0f;
+        // Normalize the angle to be within 0-360 degrees
+        item_angle_deg = fmod(item_angle_deg, 360.0f);
+        if (item_angle_deg < 0) {
+            item_angle_deg += 360.0f;
         }
 
-        float rad = current_item_display_angle_deg * DEG_TO_RAD;
-        int item_base_x = centerX + cos(rad) * radius;
-        int item_base_y = centerY - sin(rad) * radius;
+        float rad = item_angle_deg * DEG_TO_RAD; // DEG_TO_RAD = PI / 180.0f
+      
+        int icon_center_x = centerX + static_cast<int>(cos(rad) * placement_radius); // Icon's center X
+        int icon_center_y = centerY - static_cast<int>(sin(rad) * placement_radius); // Icon's center Y (subtract sin because Y is typically downwards on screens)
 
-        const tImage* icon = menuItems[i].icon; // Nu tImage*
-        uint16_t icon_color = TFT_DARKGREY;
-        int textYOffset = 0;
-
-        if (icon) {
-            textYOffset = (icon->height / 2) + 2;
-        }
-
-        // Determine if the current item is the selected item
+        const tImage* icon = menuItems[i].icon;
         bool is_selected = (i == selectedMenuItemIndex);
 
-        if (is_selected) { // Geselecteerd item
-            icon_color = TFT_WHITE;
-            canvas.setTextSize(1);
-            canvas.setTextColor(TFT_WHITE);
-        } else { // Niet-geselecteerde items
-            canvas.setTextSize(1);
-            canvas.setTextColor(TFT_LIGHTGREY);
-        }
-
         if (icon) {
-            // Use drawBitmap for tImage
-            canvas.drawBitmap(item_base_x - icon->width / 2,
-                               item_base_y - icon->height / 2,
-                               icon->width, icon->height,
-                               icon->data);
-        }
+            // Determine icon color for 1-bit icons
+            // Selected icons are white, non-selected are light grey.
+            uint16_t icon_color_for_bitmap = is_selected ? TFT_WHITE : TFT_LIGHTGREY;
 
-        canvas.setTextColor(is_selected ? TFT_WHITE : TFT_LIGHTGREY);
-        canvas.drawString(menuItems[i].name, item_base_x, item_base_y + textYOffset);
+            // Draw the icon
+            if (icon->depth == 1) {
+                canvas.drawXBitmap(
+                    icon_center_x - icon->width / 2,
+                    icon_center_y - icon->height / 2,
+                    (const uint8_t*)icon->data,
+                    icon->width, icon->height,
+                    icon_color_for_bitmap
+                );
+            } else if (icon->depth == 16) {
+                // For 16-bit icons, they have their own colors.
+                // If dimming is desired for non-selected 16-bit icons, more complex handling is needed (e.g., drawing pixel by pixel with color manipulation).
+                canvas.pushImage(
+                    icon_center_x - icon->width / 2,
+                    icon_center_y - icon->height / 2,
+                    icon->width, icon->height,
+                    (uint16_t*)icon->data
+                );
+            }
+
+            if (is_selected) {
+                // Draw a circle around the selected icon
+                int selection_circle_radius = (icon->width / 2) + 4; // Adjust padding as needed
+                canvas.drawCircle(icon_center_x, icon_center_y, selection_circle_radius, TFT_WHITE);
+
+                // Store the name of the selected item
+                selectedItemName = menuItems[i].name;
+            }
+        }
     }
+
+    // Draw the selected item's name in the center of the screen
+    if (selectedItemName) {
+        canvas.setTextSize(2); // Use a larger font for the selected item's name
+        canvas.setTextColor(TFT_WHITE);
+        canvas.drawString(selectedItemName, centerX, centerY);
+    }
+
+    // Reset text properties to default for other parts of your application if necessary
     canvas.setTextSize(1);
-    canvas.setTextColor(TFT_WHITE, TFT_BLACK);
+    canvas.setTextColor(TFT_WHITE, TFT_BLACK); // As per original end of function
 }
 
 // Implementations for initMenu() and handleMenuInput()
@@ -115,22 +130,42 @@ void initMenu() {
 }
 
 void handleMenuInput() {
-    // Read the encoder value
-    int encoderValue = M5Dial.Encoder.read();
+    // Read the raw change from the encoder.
+    int raw_encoder_change = M5Dial.Encoder.read();
 
-    // Adjust selectedMenuItemIndex based on encoder movement
-    if (encoderValue > 0) {
-        selectedMenuItemIndex++;
-        if (selectedMenuItemIndex >= numMenuItems) {
-            selectedMenuItemIndex = 0; // Wrap around
+    // Reset the encoder's internal counter if there was a change.
+    // This makes raw_encoder_change effectively the delta since the last call.
+    if (raw_encoder_change != 0) {
+        M5Dial.Encoder.write(0);
+    }
+
+    encoder_click_accumulator += raw_encoder_change;
+
+    // Check if enough counts have accumulated for a clockwise turn (positive)
+    if (ENCODER_COUNTS_PER_DETENT > 0 && encoder_click_accumulator >= ENCODER_COUNTS_PER_DETENT) {
+        int num_detents = encoder_click_accumulator / ENCODER_COUNTS_PER_DETENT;
+        for (int i = 0; i < num_detents; ++i) {
+            selectedMenuItemIndex++;
+            if (selectedMenuItemIndex >= NUM_ITEMS) {
+                selectedMenuItemIndex = 0; // Wrap around
+            }
         }
-        M5Dial.Encoder.write(0); // Reset encoder value
-    } else if (encoderValue < 0) {
-        selectedMenuItemIndex--;
-        if (selectedMenuItemIndex < 0) {
-            selectedMenuItemIndex = numMenuItems - 1; // Wrap around
+        encoder_click_accumulator %= ENCODER_COUNTS_PER_DETENT; // Keep the remainder
+    }
+    // Check if enough counts have accumulated for a counter-clockwise turn (negative)
+    else if (ENCODER_COUNTS_PER_DETENT > 0 && encoder_click_accumulator <= -ENCODER_COUNTS_PER_DETENT) {
+        int num_detents = -encoder_click_accumulator / ENCODER_COUNTS_PER_DETENT; // Make positive
+        for (int i = 0; i < num_detents; ++i) {
+            selectedMenuItemIndex--;
+            if (selectedMenuItemIndex < 0) {
+                selectedMenuItemIndex = NUM_ITEMS - 1; // Wrap around
+            }
         }
-        M5Dial.Encoder.write(0); // Reset encoder value
+        // Keep the remainder, preserving sign.
+        // The modulo operator behavior with negative numbers can vary, so ensure it's correct.
+        // A common way:
+        encoder_click_accumulator = -( -encoder_click_accumulator % ENCODER_COUNTS_PER_DETENT );
+
     }
 
     // Check for button press to execute the selected action
