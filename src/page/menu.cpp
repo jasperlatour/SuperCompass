@@ -1,21 +1,17 @@
 // filepath: c:\Users\latou\Git Repo's Pesronal\SuperCompass\src\menu.cpp
 #include "menu.h"
-#include "drawing.h"
-#include "icons.h"
 
-// Define the global variables that were declared as extern in menu.h
-bool menuActive = false; // Or true, depending on your desired initial state
-
+int selectedLocationIndex = 0;       
 int selectedMenuItemIndex = 0;
-static int encoder_click_accumulator = 0;
-const int ENCODER_COUNTS_PER_DETENT = 4;
+
 
 
 // Define the actions for the menu-items
 void action_startNavigation() { // Definitie
     Serial.println("Action: Start Navigation selected");
     menuActive = false;
-    // ...
+    menuActive = false;
+    savedLocationsMenuActive = false; // Ensure other menus are off
 }
 
 void action_showSettings() { // Definitie
@@ -28,19 +24,29 @@ void action_showGpsInfo() { // Definitie
     // ...
 }
 
+
+void action_showSavedLocations() {
+    Serial.println("Action: Show Saved Locations selected");
+    menuActive = false;
+    savedLocationsMenuActive = true;
+    initSavedLocationsMenu(); // Initialize the saved locations menu
+}
+
+
 // Define your menu-items WITH RawIconData pointers
 #define NUM_ITEMS 5
-
-
 
 
 MenuItem menuItems[NUM_ITEMS] = {
     {"Navigate", action_startNavigation, &icon_compass},
     {"Settings", action_showSettings,    &icon_more},
-    {"GPS Info", action_showGpsInfo,     &icon_wifi},
+    {"select target", action_showSavedLocations,     &icon_wifi},
     {"Item 4",   action_showGpsInfo,     &icon_more},
     {"Item 5",   action_showGpsInfo,     &icon_wifi}
 };
+
+
+int numActualSavedLocations = 3; 
 
 void drawAppMenu(M5Canvas &canvas, int centerX, int centerY, int radius, int arrowSize) {
     canvas.fillSprite(TFT_BLACK);
@@ -128,6 +134,8 @@ void initMenu() {
     selectedMenuItemIndex = 0;
     Serial.println("Menu Initialized");
 }
+
+
 
 void handleMenuInput() {
     // Read the raw change from the encoder.

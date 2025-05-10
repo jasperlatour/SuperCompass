@@ -3,7 +3,7 @@
 #define MENU_H
 
 #include "globals_and_includes.h"
-
+#include "saved_locations.h"
 
 
 typedef struct {
@@ -17,7 +17,7 @@ typedef struct {
 extern MenuItem menuItems[];
 extern int numMenuItems;
 extern int selectedMenuItemIndex;
-extern bool menuActive;
+
 
 // Functies voor menu beheer
 void initMenu();
@@ -29,6 +29,8 @@ void drawAppMenu(M5Canvas &canvas, int centerX, int centerY, int radius, int arr
 void action_startNavigation();
 void action_showSettings();
 void action_showGpsInfo();
+void action_showSavedLocations(); // ADDED: Action to show the saved locations page
+
 
 
 #endif // MENU_H
