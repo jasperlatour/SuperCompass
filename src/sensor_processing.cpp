@@ -1,4 +1,5 @@
 #include "sensor_processing.h"
+#include "gpsinfo.h"
 // Assumes globals_and_includes.h is included via sensor_processing.h
 // Access to global objects 'M5Dial', 'canvas', 'GPS_Serial', 'qmc'
 // Access to global variables 'centerX', 'centerY', 'R', 'firstHeadingReading', 'smoothedHeadingX/Y'
@@ -56,6 +57,15 @@ void initializeHardwareAndSensors() {
 void processGpsData() {
     while (GPS_Serial.available() > 0) {
         gps.encode(GPS_Serial.read());
+        if (gps.location.isUpdated()) {
+            // Update GPS location
+            setLatitude(gps.location.lat());
+            setLongitude(gps.location.lng());
+            setAltitude(gps.altitude.meters());
+            setSpeed(gps.speed.kmph());
+            setSatellitesInView(gps.satellites.value());
+            setFixQuality(gps.location.FixQuality());
+        }
     }
 }
 
