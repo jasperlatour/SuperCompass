@@ -1,19 +1,15 @@
 // filepath: c:\Users\latou\Git Repo's Pesronal\SuperCompass\src\menu.cpp
 #include "menu.h"
 
-
-
 int selectedLocationIndex = 0;       
 int selectedMenuItemIndex = 0;
-
-
 
 // Define the actions for the menu-items
 void action_startNavigation() { // Definitie
     Serial.println("Action: Start Navigation selected");
     menuActive = false;
-    menuActive = false;
-    savedLocationsMenuActive = false; // Ensure other menus are off
+    gpsinfoActive = false;
+    savedLocationsMenuActive = false; 
 }
 
 void action_showSettings() { // Definitie
@@ -22,8 +18,10 @@ void action_showSettings() { // Definitie
 }
 
 void action_showGpsInfo() { // Definitie
-    Serial.println("Action: Show GPS Info selected");
-    // ...
+    Serial.println("Action: Navigate to GPS Info Page selected");
+    menuActive = false;
+    savedLocationsMenuActive = false;
+    gpsinfoActive = true;
 }
 
 
@@ -31,6 +29,7 @@ void action_showSavedLocations() {
     Serial.println("Action: Show Saved Locations selected");
     menuActive = false;
     savedLocationsMenuActive = true;
+    gpsinfoActive = false; 
     initSavedLocationsMenu(); // Initialize the saved locations menu
 }
 
@@ -43,7 +42,7 @@ MenuItem menuItems[NUM_ITEMS] = {
     {"Navigate", action_startNavigation, &icon_compass},
     {"Settings", action_showSettings,    &icon_more},
     {"select target", action_showSavedLocations,     &icon_target},
-    {"Item 4",   action_showGpsInfo,     &icon_more},
+    {"gps info",   action_showGpsInfo,     &icon_gps},
     {"Item 5",   action_showGpsInfo,     &icon_wifi}
 };
 

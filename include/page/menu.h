@@ -6,6 +6,7 @@
 #include "saved_locations.h"
 
 
+
 typedef struct {
     const char* name;
     void (*action)();

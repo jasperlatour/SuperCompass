@@ -1,5 +1,6 @@
 bool menuActive = false;
 bool savedLocationsMenuActive = false;
+bool gpsinfoActive = false;
 
 // ---- Includes ----
 #include "globals_and_includes.h" // Includes config.h
@@ -9,6 +10,7 @@ bool savedLocationsMenuActive = false;
 #include "drawing.h"
 #include "calculations.h"
 #include "menu.h" 
+#include "gpsinfo.h"
 
 // ---- Global Object Definitions (reeds 'extern' verklaard in globals_and_includes.h) ----
 M5Canvas canvas(&M5Dial.Display);
@@ -79,15 +81,22 @@ void loop() {
     server.handleClient(); // Handel web server requests af
 
     if (menuActive) {
-        handleMenuInput(); // Verwerk input voor het menu
-        // Teken het menu op de globale canvas
-        // De straal R/2 is een gok, pas aan voor de gewenste grootte van het cirkelmenu
+        handleMenuInput(); 
         drawAppMenu(canvas, centerX, centerY, R / 2, 32);
-        canvas.pushSprite(0, 0); // Push de getekende canvas naar het display
-    }else if (savedLocationsMenuActive) { // ADDED: Handle saved locations menu
+        canvas.pushSprite(0, 0); 
+    }else if (savedLocationsMenuActive) {
         handleSavedLocationsInput();
         drawSavedLocationsMenu(canvas, centerX, centerY);
         canvas.pushSprite(0, 0); 
+    } else if (gpsinfoActive) { // ADDED: Handle GPS info page
+        drawGpsInfoPage(canvas, centerX, centerY);
+        handleGpsInfoInput();
+        canvas.pushSprite(0, 0); 
+    } else if (M5.BtnA.wasPressed()) { // ADDED: Handle button A press
+        Serial.println("Button A pressed");
+        menuActive = true; // Set menuActive to true to show the menu
+        initMenu(); // Reset menu state
+        M5Dial.Display.fillScreen(TFT_BLACK); // Clear screen before drawing menu
     } else {
         processGpsData();
 
@@ -137,13 +146,12 @@ void loop() {
         }
         canvas.pushSprite(0, 0);
 
-        // Manier om terug te keren naar het menu
-        // Bijvoorbeeld: lang indrukken van de knop
-        if (M5.BtnA.wasHold()) { // Of M5.BtnA.pressedFor(long_press_duration)
+        
+        if (M5.BtnA.wasHold()) { 
             Serial.println("Returning to menu...");
             menuActive = true;
-            initMenu(); // Reset menu state (optioneel, of zet alleen selectedMenuItemIndex)
-            M5Dial.Display.fillScreen(TFT_BLACK); // Wis scherm voordat menu getekend wordt
+            initMenu(); 
+            M5Dial.Display.fillScreen(TFT_BLACK); 
         }
     }
 

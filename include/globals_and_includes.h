@@ -55,6 +55,7 @@ extern bool firstHeadingReading;
 
 extern bool menuActive;
 extern bool savedLocationsMenuActive;
+extern bool gpsinfoActive;
 
 // Encoder Variables
 static int encoder_click_accumulator = 0;
