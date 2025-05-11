@@ -67,7 +67,6 @@ bool hasFix()  {
 void drawGpsInfoPage(M5Canvas &canvas, int centerX, int centerY) {
     canvas.fillSprite(TFT_BLACK); // Clear the screen
     canvas.setTextColor(TFT_WHITE, TFT_BLACK);
-    canvas.setFont(&fonts::Font2); // Set a font
 
     char buffer[50]; // Buffer for formatting strings
 
