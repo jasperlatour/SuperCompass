@@ -98,14 +98,28 @@ void loop() {
         double targetBearingDegrees = 0.0;
         double arrowAngleOnCompassDegrees = 0.0;
 
-        bool locationIsValid = gps.location.isValid() && gps.location.age() < 3000;
-        // Don't redefine the global targetIsSet variable, just use it directly
-        // Also check if the coordinates are valid
+        // Check for valid location from either GPS or BLE
+        bool gpsLocationIsValid = gps.location.isValid() && gps.location.age() < 3000;
+        bool bleLocationIsValid = isBlePositionValid();
+        bool locationIsValid = gpsLocationIsValid || bleLocationIsValid;
+
         targetIsSet = (TARGET_LAT != 0.0 || TARGET_LON != 0.0);
+
+        double currentLat = 0.0;
+        double currentLon = 0.0;
+
+        if (locationIsValid) {
+            if (gpsLocationIsValid) {
+                currentLat = gps.location.lat();
+                currentLon = gps.location.lng();
+            } else { // bleLocationIsValid must be true
+                getBlePosition(currentLat, currentLon);
+            }
+        }
 
         if (locationIsValid && targetIsSet) {
             targetBearingDegrees = calculateTargetBearing(
-                gps.location.lat(), gps.location.lng(),
+                currentLat, currentLon,
                 TARGET_LAT, TARGET_LON
             );
             arrowAngleOnCompassDegrees = targetBearingDegrees - currentHeadingDegrees;
@@ -118,25 +132,12 @@ void loop() {
         drawGpsInfo(canvas, gps, centerX, centerY);
 
         if (!locationIsValid) {
-            String statusMsg = "Acquiring GPS...";
-            if (Setaddress != "" && !targetIsSet) {
-                statusMsg = Setaddress.substring(0, min((int)Setaddress.length(), 25));
-                if (Setaddress.length() > 25) statusMsg += "...";
-            } else if (Setaddress != "" && targetIsSet) {
-                statusMsg = "Target: ";
-                statusMsg += Setaddress.substring(0, min((int)Setaddress.length(), 20));
-                if (Setaddress.length() > 20) statusMsg += "...";
-            }
-            drawStatusMessage(canvas, statusMsg.c_str(), centerX, centerY + R - 40, 1, TFT_ORANGE);
+            drawStatusMessage(canvas, "No Location Fix", centerX, centerY + 50, TFT_RED, TFT_WHITE);
         } else if (!targetIsSet) {
-            drawStatusMessage(canvas, "Set Target via WiFi:", centerX, centerY + R - 70, 1, TFT_CYAN);
-            if (currentNetworkIP != "N/A") {
-                drawStatusMessage(canvas, currentNetworkIP.c_str(), centerX, centerY + R - 50, 1, TFT_CYAN);
-            } else {
-                drawStatusMessage(canvas, "No Network IP", centerX, centerY + R - 50, 1, TFT_RED);
-            }
-        } else { // Location is valid AND target is set
+            drawStatusMessage(canvas, "No Target Set", centerX, centerY - 50, TFT_YELLOW, TFT_WHITE);
+        } else {
             drawTargetArrow(canvas, arrowAngleOnCompassDegrees, centerX, centerY, R);
+            //drawDistanceToCanvas(canvas, currentLat, currentLon, TARGET_LAT, TARGET_LON, centerX, centerY + R - 20);
         }
         canvas.pushSprite(0, 0);
 

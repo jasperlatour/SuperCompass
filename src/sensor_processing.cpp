@@ -1,5 +1,6 @@
 #include "sensor_processing.h"
 #include "gpsinfo.h"
+#include "bluetooth.h"
 // Assumes globals_and_includes.h is included via sensor_processing.h
 // Access to global objects 'M5Dial', 'canvas', 'GPS_Serial', 'qmc'
 // Access to global variables 'centerX', 'centerY', 'R', 'firstHeadingReading', 'smoothedHeadingX/Y'
@@ -42,9 +43,13 @@ void initializeHardwareAndSensors() {
 }
 
 void processGpsData() {
+    bool gpsUpdated = false;
+
+    // Process any available GPS data
     while (GPS_Serial.available() > 0) {
         gps.encode(GPS_Serial.read());
         if (gps.location.isUpdated()) {
+            gpsUpdated = true;
             // Update GPS location
             setLatitude(gps.location.lat());
             setLongitude(gps.location.lng());
@@ -52,6 +57,24 @@ void processGpsData() {
             setSpeed(gps.speed.kmph());
             setSatellitesInView(gps.satellites.value());
             setFixQuality(gps.location.FixQuality());
+        }
+    }
+
+    // If we didn't get a GPS update and GPS location is not valid or is too old
+    if (!gpsUpdated && (!gps.location.isValid() || gps.location.age() > 10000)) {
+        // Check if we have a valid BLE position
+        if (isBlePositionValid()) {
+            double lat, lon;
+            getBlePosition(lat, lon);
+            
+            // Use the BLE position
+            setLatitude(lat);
+            setLongitude(lon);
+            
+            // Set fix quality to indicate BLE source (using value 9 to distinguish from GPS quality)
+            setFixQuality(9);
+            
+            Serial.println("Using BLE position instead of GPS");
         }
     }
 }

@@ -56,4 +56,10 @@ const int ENCODER_COUNTS_PER_DETENT = 4;
 
 extern bool targetIsSet;
 
+// BLE position variables
+extern bool blePositionSet;        // Whether we have a valid position from BLE
+extern uint32_t blePositionTime;   // Time when the BLE position was last updated
+extern double BLE_LAT;             // Latitude from BLE
+extern double BLE_LON;             // Longitude from BLE
+
 #endif // GLOBALS_AND_INCLUDES_H
