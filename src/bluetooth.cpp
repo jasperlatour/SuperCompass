@@ -40,9 +40,14 @@ class ServerCallbacks: public BLEServerCallbacks {
 
 void notifySavedLocationsChange() {
     try {
+        Serial.println("BLE: Preparing to notify saved locations change");
+        
         // Use a small static buffer to avoid memory issues
         static char buffer[200];
         strcpy(buffer, "[]"); // Default empty array
+        
+        Serial.print("BLE: Total saved locations: ");
+        Serial.println(savedLocations.size());
         
         if (savedLocations.size() > 0) {
             // Create a small JsonDocument
@@ -51,6 +56,9 @@ void notifySavedLocationsChange() {
             
             // Only send a few locations to avoid memory issues
             const size_t maxLocations = 3; // Send very few at a time
+            Serial.print("BLE: Sending up to ");
+            Serial.print(maxLocations);
+            Serial.println(" locations");
             
             for (size_t i = 0; i < savedLocations.size() && i < maxLocations; i++) {
                 JsonObject obj = array.add<JsonObject>();
@@ -70,13 +78,23 @@ void notifySavedLocationsChange() {
             serializeJson(doc, buffer, sizeof(buffer));
         }
         
+        // Log the JSON that's going to be sent
+        Serial.print("BLE: Sending locations JSON: ");
+        Serial.println(buffer);
+        
         if (pLocationsListCharacteristic != nullptr) {
             // Use standard string API which is known to be safe
             pLocationsListCharacteristic->setValue(buffer);
             pLocationsListCharacteristic->notify();
+            Serial.println("BLE: Locations notification sent successfully");
+        } else {
+            Serial.println("BLE: ERROR - Locations characteristic not initialized");
         }
+    } catch (const std::exception& e) {
+        Serial.print("Exception in notifySavedLocationsChange: ");
+        Serial.println(e.what());
     } catch (...) {
-        Serial.println("Exception in notifySavedLocationsChange");
+        Serial.println("Unknown exception in notifySavedLocationsChange");
     }
 }
 
@@ -127,29 +145,18 @@ class TargetCharacteristicCallbacks : public BLECharacteristicCallbacks {
                     Serial.print(", lon: ");
                     Serial.println(lon, 6);
                     
-                    if (validCoords && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-                        // Log old values
-                        Serial.print("Updating target from previous lat: ");
-                        Serial.print(TARGET_LAT, 6);
-                        Serial.print(", lon: ");
-                        Serial.print(TARGET_LON, 6);
-                        Serial.print(" to new lat: ");
-                        Serial.print(lat, 6);
-                        Serial.print(", lon: ");
-                        Serial.println(lon, 6);
-                        
-                        // Update global variables with atomic operations
-                        noInterrupts(); // Disable interrupts for critical section
+                    if (validCoords && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {        
+                        // Set target coordinates and state
                         TARGET_LAT = lat;
                         TARGET_LON = lon;
                         targetIsSet = true;
-                        Setaddress = "BLE Target";
-                        interrupts(); // Re-enable interrupts
                         
-                        // Force a delay to ensure all values are written
-                        delay(10);
-                        
-                        Serial.println("Target set via BLE.");
+                        // If name is provided in JSON, use it for Setaddress
+                        if (doc.containsKey("name")) {
+                            Setaddress = doc["name"].as<String>();
+                        } else {
+                            Setaddress = "BLE Target";
+                        }
                         
                         // Verify values were set correctly
                         Serial.print("Verification - TARGET_LAT: ");
@@ -158,6 +165,8 @@ class TargetCharacteristicCallbacks : public BLECharacteristicCallbacks {
                         Serial.println(TARGET_LON, 6);
                         Serial.print("targetIsSet: ");
                         Serial.println(targetIsSet ? "true" : "false");
+                        Serial.print("Setaddress: ");
+                        Serial.println(Setaddress);
                     } else {
                         Serial.println("Invalid coordinates received (out of range)");
                     }
@@ -177,38 +186,94 @@ class LocationsModifyCallbacks : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) override {
         try {
             std::string value = pCharacteristic->getValue();
+            Serial.print("BLE Locations Modify received data, length: ");
+            Serial.println(value.length());
+            
             if (value.length() == 0 || value.length() > 200) { // Limit size
+                Serial.println("BLE Locations data invalid length");
                 return;
             }
+            
+            // Print raw value for debugging
+            Serial.print("Raw BLE locations data: ");
+            Serial.println(value.c_str());
             
             // Keep things very simple
             JsonDocument doc;
             DeserializationError error = deserializeJson(doc, value);
             
             if (error) {
+                Serial.print("JSON parsing error in locations: ");
+                Serial.println(error.c_str());
                 return;
             }
             
-            const char* action = doc["action"].as<const char*>();
-            if (!action) return;
+            // Log JSON contents
+            Serial.println("Locations JSON content:");
+            serializeJsonPretty(doc, Serial);
+            Serial.println();
             
-            if (strcmp(action, "add") == 0) {
-                JsonObject data = doc["data"];
-                if (data && data.containsKey("name") && data.containsKey("lat") && data.containsKey("lon")) {
-                    const char* name = data["name"];
-                    if (name) {
-                        char* name_copy = new char[strlen(name) + 1];
-                        strcpy(name_copy, name);
-                        savedLocations.push_back({name_copy, data["lat"], data["lon"]});
-                        needsLocationsSave = true;
-                    }
-                }
+            const char* action = doc["action"].as<const char*>();
+            if (!action) {
+                Serial.println("BLE Locations: Missing 'action' field in JSON");
+                return;
             }
+            
+            Serial.print("BLE Locations: Processing action type: ");
+            Serial.println(action);
+            
+        if (strcmp(action, "add") == 0) {
+            // Check for data or location field, supporting both formats
+            JsonObject data = doc.containsKey("data") ? doc["data"] : doc["location"];
+            
+            if (data) {
+                const char* name = data["name"];
+                double lat = 0.0;
+                double lon = 0.0;
+                
+                // Handle both lat/lon and latitude/longitude field names
+                if (data.containsKey("lat") && data.containsKey("lon")) {
+                    lat = data["lat"];
+                    lon = data["lon"];
+                } else if (data.containsKey("latitude") && data.containsKey("longitude")) {
+                    lat = data["latitude"];
+                    lon = data["longitude"];
+                } else {
+                    Serial.println("BLE Locations: Missing coordinate fields in location data");
+                    return;
+                }
+                
+                if (name && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                    Serial.print("BLE Locations: Adding new location '");
+                    Serial.print(name);
+                    Serial.print("' at ");
+                    Serial.print(lat, 6);
+                    Serial.print(", ");
+                    Serial.println(lon, 6);
+                    
+                    char* name_copy = new char[strlen(name) + 1];
+                    strcpy(name_copy, name);
+                    savedLocations.push_back({name_copy, lat, lon});
+                    needsLocationsSave = true;
+                } else {
+                    Serial.println("BLE Locations: Invalid name or coordinates in add request");
+                }
+            } else {
+                Serial.println("BLE Locations: Add action missing 'data' or 'location' object");
+            }
+        }
             else if (strcmp(action, "edit") == 0) {
                 int index = doc["index"];
+                Serial.print("BLE Locations: Edit request for index ");
+                Serial.println(index);
+                
                 if (index >= 0 && index < savedLocations.size()) {
                     JsonObject data = doc["data"];
                     if (data && data.containsKey("name")) {
+                        const char* oldName = savedLocations[index].name ? savedLocations[index].name : "Unnamed";
+                        double oldLat = savedLocations[index].lat;
+                        double oldLon = savedLocations[index].lon;
+                        
                         if (savedLocations[index].name) {
                             delete[] savedLocations[index].name;
                         }
@@ -225,19 +290,55 @@ class LocationsModifyCallbacks : public BLECharacteristicCallbacks {
                             savedLocations[index].lon = data["lon"];
                         }
                         
+                        Serial.print("BLE Locations: Edited location from '");
+                        Serial.print(oldName);
+                        Serial.print("' (");
+                        Serial.print(oldLat, 6);
+                        Serial.print(", ");
+                        Serial.print(oldLon, 6);
+                        Serial.print(") to '");
+                        Serial.print(name);
+                        Serial.print("' (");
+                        Serial.print(savedLocations[index].lat, 6);
+                        Serial.print(", ");
+                        Serial.print(savedLocations[index].lon, 6);
+                        Serial.println(")");
+                        
                         needsLocationsSave = true;
+                    } else {
+                        Serial.println("BLE Locations: Edit action missing required fields");
                     }
+                } else {
+                    Serial.println("BLE Locations: Edit request with invalid index");
                 }
             }
             else if (strcmp(action, "delete") == 0) {
                 int index = doc["index"];
+                Serial.print("BLE Locations: Delete request for index ");
+                Serial.println(index);
+                
                 if (index >= 0 && index < savedLocations.size()) {
+                    // Log what's being deleted
+                    const char* name = savedLocations[index].name ? savedLocations[index].name : "Unnamed";
+                    Serial.print("BLE Locations: Deleting location '");
+                    Serial.print(name);
+                    Serial.print("' at (");
+                    Serial.print(savedLocations[index].lat, 6);
+                    Serial.print(", ");
+                    Serial.print(savedLocations[index].lon, 6);
+                    Serial.println(")");
+                    
                     if (savedLocations[index].name) {
                         delete[] savedLocations[index].name;
                     }
                     savedLocations.erase(savedLocations.begin() + index);
                     needsLocationsSave = true;
+                } else {
+                    Serial.println("BLE Locations: Delete request with invalid index");
                 }
+            } else {
+                Serial.print("BLE Locations: Unknown action type: ");
+                Serial.println(action);
             }
         } catch (...) {
             Serial.println("Exception in LocationsModifyCallbacks");
@@ -247,6 +348,7 @@ class LocationsModifyCallbacks : public BLECharacteristicCallbacks {
 
 class LocationsListCallbacks : public BLECharacteristicCallbacks {
     void onRead(BLECharacteristic *pCharacteristic) override {
+        Serial.println("BLE: Client requested saved locations list");
         try {
             // Use a small static buffer
             static char buffer[200];
@@ -278,9 +380,22 @@ class LocationsListCallbacks : public BLECharacteristicCallbacks {
                 serializeJson(doc, buffer, sizeof(buffer));
             }
             
+            // Log what's being sent
+            Serial.print("BLE: Returning locations: ");
+            Serial.println(buffer);
+            
             // Use standard string API which is known to be safe
             pCharacteristic->setValue(buffer);
+            Serial.print("BLE: Sent ");
+            Serial.print(strlen(buffer));
+            Serial.println(" bytes of location data");
+        } catch (const std::exception& e) {
+            Serial.print("Exception in LocationsListCallbacks: ");
+            Serial.println(e.what());
+            // Fall back to empty array
+            pCharacteristic->setValue("[]");
         } catch (...) {
+            Serial.println("Unknown exception in LocationsListCallbacks");
             // Fall back to empty array
             pCharacteristic->setValue("[]");
         }
@@ -334,31 +449,13 @@ void setupBLE() {
     Serial.println("BLE advertising started.");
 }
 
-// Print current target status for debugging
-void logTargetStatus() {
-    Serial.println("=== TARGET STATUS ===");
-    Serial.print("TARGET_LAT: ");
-    Serial.print(TARGET_LAT, 6);
-    Serial.print(", TARGET_LON: ");
-    Serial.println(TARGET_LON, 6);
-    Serial.print("targetIsSet: ");
-    Serial.println(targetIsSet ? "true" : "false");
-    Serial.print("Setaddress: ");
-    Serial.println(Setaddress);
-    Serial.println("===================");
-}
 
 // Call this from your main loop
 void checkBLEStatus() {
     static uint32_t lastStatusTime = 0;
     static uint32_t lastVerifyTime = 0;
     
-    // Log target status every 5 seconds if BLE is connected
-    if (btConnected && millis() - lastStatusTime > 5000) {
-        lastStatusTime = millis();
-        logTargetStatus();
-    }
-    
+
     // Verify target variables consistency every 30 seconds
     if (millis() - lastVerifyTime > 30000) {
         lastVerifyTime = millis();

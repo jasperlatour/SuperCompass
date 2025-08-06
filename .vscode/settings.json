@@ -1,7 +1,8 @@
 {
     "files.associations": {
         "cstddef": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "typeinfo": "cpp"
     },
     "cmake.sourceDirectory": "C:/Users/latou/Git Repo's Pesronal/SuperCompass/lib/ArduinoJson-7.x/extras/fuzzing"
 }
