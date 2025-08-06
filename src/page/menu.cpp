@@ -53,7 +53,7 @@ MenuItem menuItems[NUM_ITEMS] = {
     {"Settings", action_showSettings,    &icon_more},
     {"select target", action_showSavedLocations,     &icon_target},
     {"gps info",   action_showGpsInfo,     &icon_gps},
-    {"Bluetooth",   action_showBluetoothInfo,     &icon_wifi}
+    {"Bluetooth",   action_showBluetoothInfo,     &icon_bluetooth}
 };
 
 
