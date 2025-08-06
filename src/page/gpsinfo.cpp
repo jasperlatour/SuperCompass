@@ -75,6 +75,17 @@ void drawGpsInfoPage(M5Canvas &canvas, int centerX, int centerY) {
 
     // --- Centering Text ---
     canvas.setTextDatum(MC_DATUM); // Middle-Center datum for all text
+    
+    // Check if we're using BLE position
+    bool usingBlePosition = (fixQuality_ == 9);
+    
+    // Show position source
+    if (usingBlePosition) {
+        canvas.setTextColor(TFT_BLUE, TFT_BLACK);
+        canvas.drawString("Using BLE Position", centerX, yPos);
+        yPos += lineHeight;
+        canvas.setTextColor(TFT_WHITE, TFT_BLACK);
+    }
 
     // Latitude
     sprintf(buffer, "Lat: %.6f", latitude_);

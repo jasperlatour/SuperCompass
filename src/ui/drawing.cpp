@@ -1,5 +1,7 @@
 // drawing.cpp
 #include "drawing.h"
+#include "bluetooth.h"
+#include "page/gpsinfo.h"
 
 
 #ifndef M_PI
@@ -168,17 +170,32 @@ void drawGpsInfo(M5Canvas& canvas, const TinyGPSPlus& gps, int centerX, int cent
     canvas.setTextSize(1);
     canvas.setTextDatum(MC_DATUM); // Middle Center
 
-    if (gps.location.isValid()) { // Show coordinates even if slightly old
-        String lat_str = "Lat: " + String(const_cast<TinyGPSLocation&>(gps.location).lat(), 4);
-        String lng_str = "Lng: " + String(const_cast<TinyGPSLocation&>(gps.location).lng(), 4);
+    // Get the current fix quality to determine if we're using BLE position
+    int fixQuality = getFixQuality();
+    bool usingBlePosition = (fixQuality == 9);
+    
+    // If GPS is valid or we're using BLE position
+    if (gps.location.isValid() || usingBlePosition) {
+        // Get position from our global variables which might come from BLE
+        double lat = getLatitude();
+        double lon = getLongitude();
+        
+        String lat_str = "Lat: " + String(lat, 4);
+        String lng_str = "Lng: " + String(lon, 4);
 
         canvas.setTextColor(TFT_BLACK, TFT_WHITE);
         canvas.drawString(lat_str, centerX, centerY - 10);
         canvas.drawString(lng_str, centerX, centerY + 10);
+        
+        // If using BLE position, show an indicator
+        if (usingBlePosition) {
+            canvas.setTextColor(TFT_BLUE, TFT_WHITE);
+            canvas.drawString("Using BLE Position", centerX, centerY - 30);
+        }
     } else {
         // Show "No GPS" if not valid (on canvas)
         canvas.setTextColor(TFT_RED, TFT_WHITE);
-        canvas.drawString("No GPS Fix", centerX , centerY - 50);
+        canvas.drawString("No GPS Fix", centerX, centerY - 50);
     }
 }
 
