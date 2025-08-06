@@ -11,9 +11,6 @@
 #include <HardwareSerial.h> // For GPS_Serial
 
 // ---- Network & Web Libraries ----
-#include <WiFi.h>
-#include <WebServer.h>
-#include <HTTPClient.h>   // For making API requests
 #include <ArduinoJson.h>  // For parsing API responses
 #include <FS.h>
 #include <SPIFFS.h>
@@ -37,15 +34,11 @@ extern HardwareSerial GPS_Serial;
 // Compass Display Geometry
 extern int centerX, centerY, R;
 
-// Web Server
-extern WebServer server;
 
 // Target Coordinates
 extern double TARGET_LAT;
 extern double TARGET_LON;
 
-// Network Information
-extern String currentNetworkIP;
 extern String Setaddress; // Geocoded address string
 
 // Heading Smoothing Variables

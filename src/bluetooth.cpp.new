@@ -1,0 +1,269 @@
+#include "bluetooth.h"
+#include "page/saved_locations.h"
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+#include <ArduinoJson.h>
+
+#define BluetoothName "SuperCompass"
+
+// See the following for generating UUIDs:
+// https://www.uuidgenerator.net/
+#define SERVICE_UUID           "e393c3ca-4e9f-4d5c-bba0-37e53272f8b3"
+#define TARGET_CHAR_UUID       "78afdeb8-a315-4030-8337-629d4e021306"
+#define LOCATIONS_LIST_CHAR_UUID "cdefa4dc-b73e-4865-b35f-fafa76914afb"
+#define LOCATIONS_MODIFY_CHAR_UUID "c660ca7d-b7ea-4c13-84fe-74dd8a11814d"
+
+BLECharacteristic *pLocationsListCharacteristic;
+
+// Global variables to track BLE connection state
+bool btConnected = false;
+uint32_t lastBtConnectedTime = 0;
+
+// Flag to save locations after BLE action
+bool needsLocationsSave = false;
+
+class ServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      Serial.println("BLE Client Connected");
+      btConnected = true;
+      lastBtConnectedTime = millis();
+    }
+
+    void onDisconnect(BLEServer* pServer) {
+      Serial.println("BLE Client Disconnected");
+      btConnected = false;
+      BLEDevice::startAdvertising(); // Restart advertising on disconnect
+    }
+};
+
+void notifySavedLocationsChange() {
+    try {
+        // Use a small static buffer to avoid memory issues
+        static char buffer[200];
+        strcpy(buffer, "[]"); // Default empty array
+        
+        if (savedLocations.size() > 0) {
+            // Create a small JsonDocument
+            JsonDocument doc;
+            JsonArray array = doc.to<JsonArray>();
+            
+            // Only send a few locations to avoid memory issues
+            const size_t maxLocations = 3; // Send very few at a time
+            
+            for (size_t i = 0; i < savedLocations.size() && i < maxLocations; i++) {
+                JsonObject obj = array.add<JsonObject>();
+                
+                // Safely handle the name
+                if (savedLocations[i].name != nullptr) {
+                    obj["name"] = savedLocations[i].name;
+                } else {
+                    obj["name"] = "Unnamed";
+                }
+                
+                obj["lat"] = savedLocations[i].lat;
+                obj["lon"] = savedLocations[i].lon;
+            }
+            
+            // Serialize to our buffer with size limit
+            serializeJson(doc, buffer, sizeof(buffer));
+        }
+        
+        if (pLocationsListCharacteristic != nullptr) {
+            // Use standard string API which is known to be safe
+            pLocationsListCharacteristic->setValue(buffer);
+            pLocationsListCharacteristic->notify();
+        }
+    } catch (...) {
+        Serial.println("Exception in notifySavedLocationsChange");
+    }
+}
+
+class TargetCharacteristicCallbacks : public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) override {
+        std::string value = pCharacteristic->getValue();
+        if (value.length() > 0 && value.length() < 100) { // Limit size
+            try {
+                JsonDocument doc;
+                DeserializationError error = deserializeJson(doc, value);
+                
+                if (!error && doc.containsKey("lat") && doc.containsKey("lon")) {
+                    double lat = doc["lat"].as<double>();
+                    double lon = doc["lon"].as<double>();
+                    
+                    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                        TARGET_LAT = lat;
+                        TARGET_LON = lon;
+                        targetIsSet = true;
+                        Setaddress = "BLE Target";
+                        Serial.println("Target set via BLE.");
+                    }
+                }
+            } catch (...) {
+                Serial.println("Error parsing target JSON");
+            }
+        }
+    }
+};
+
+class LocationsModifyCallbacks : public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) override {
+        try {
+            std::string value = pCharacteristic->getValue();
+            if (value.length() == 0 || value.length() > 200) { // Limit size
+                return;
+            }
+            
+            // Keep things very simple
+            JsonDocument doc;
+            DeserializationError error = deserializeJson(doc, value);
+            
+            if (error) {
+                return;
+            }
+            
+            const char* action = doc["action"].as<const char*>();
+            if (!action) return;
+            
+            if (strcmp(action, "add") == 0) {
+                JsonObject data = doc["data"];
+                if (data && data.containsKey("name") && data.containsKey("lat") && data.containsKey("lon")) {
+                    const char* name = data["name"];
+                    if (name) {
+                        char* name_copy = new char[strlen(name) + 1];
+                        strcpy(name_copy, name);
+                        savedLocations.push_back({name_copy, data["lat"], data["lon"]});
+                        needsLocationsSave = true;
+                    }
+                }
+            }
+            else if (strcmp(action, "edit") == 0) {
+                int index = doc["index"];
+                if (index >= 0 && index < savedLocations.size()) {
+                    JsonObject data = doc["data"];
+                    if (data && data.containsKey("name")) {
+                        if (savedLocations[index].name) {
+                            delete[] savedLocations[index].name;
+                        }
+                        
+                        const char* name = data["name"];
+                        char* name_copy = new char[strlen(name) + 1];
+                        strcpy(name_copy, name);
+                        savedLocations[index].name = name_copy;
+                        
+                        if (data.containsKey("lat")) {
+                            savedLocations[index].lat = data["lat"];
+                        }
+                        if (data.containsKey("lon")) {
+                            savedLocations[index].lon = data["lon"];
+                        }
+                        
+                        needsLocationsSave = true;
+                    }
+                }
+            }
+            else if (strcmp(action, "delete") == 0) {
+                int index = doc["index"];
+                if (index >= 0 && index < savedLocations.size()) {
+                    if (savedLocations[index].name) {
+                        delete[] savedLocations[index].name;
+                    }
+                    savedLocations.erase(savedLocations.begin() + index);
+                    needsLocationsSave = true;
+                }
+            }
+        } catch (...) {
+            Serial.println("Exception in LocationsModifyCallbacks");
+        }
+    }
+};
+
+class LocationsListCallbacks : public BLECharacteristicCallbacks {
+    void onRead(BLECharacteristic *pCharacteristic) override {
+        try {
+            // Use a small static buffer
+            static char buffer[200];
+            strcpy(buffer, "[]"); // Default empty array
+            
+            if (savedLocations.size() > 0) {
+                // Create a small document
+                JsonDocument doc;
+                JsonArray array = doc.to<JsonArray>();
+                
+                // Only send a few locations to avoid memory issues
+                const size_t maxLocations = 3; // Send very few at a time
+                
+                for (size_t i = 0; i < savedLocations.size() && i < maxLocations; i++) {
+                    JsonObject obj = array.add<JsonObject>();
+                    
+                    // Safely handle the name
+                    if (savedLocations[i].name != nullptr) {
+                        obj["name"] = savedLocations[i].name;
+                    } else {
+                        obj["name"] = "Unnamed";
+                    }
+                    
+                    obj["lat"] = savedLocations[i].lat;
+                    obj["lon"] = savedLocations[i].lon;
+                }
+                
+                // Serialize to our buffer with size limit
+                serializeJson(doc, buffer, sizeof(buffer));
+            }
+            
+            // Use standard string API which is known to be safe
+            pCharacteristic->setValue(buffer);
+        } catch (...) {
+            // Fall back to empty array
+            pCharacteristic->setValue("[]");
+        }
+    }
+};
+
+void setupBLE() {
+    BLEDevice::init(BluetoothName);
+    BLEServer *pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new ServerCallbacks());
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+
+    // Target Characteristic
+    BLECharacteristic *pTargetCharacteristic = pService->createCharacteristic(
+        TARGET_CHAR_UUID,
+        BLECharacteristic::PROPERTY_WRITE
+    );
+    pTargetCharacteristic->setCallbacks(new TargetCharacteristicCallbacks());
+
+    // Locations List Characteristic
+    pLocationsListCharacteristic = pService->createCharacteristic(
+        LOCATIONS_LIST_CHAR_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
+    );
+    pLocationsListCharacteristic->addDescriptor(new BLE2902());
+    pLocationsListCharacteristic->setCallbacks(new LocationsListCallbacks());
+
+    // Locations Modify Characteristic
+    BLECharacteristic *pLocationsModifyCharacteristic = pService->createCharacteristic(
+        LOCATIONS_MODIFY_CHAR_UUID,
+        BLECharacteristic::PROPERTY_WRITE
+    );
+    pLocationsModifyCharacteristic->setCallbacks(new LocationsModifyCallbacks());
+
+    pService->start();
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pAdvertising->setScanResponse(false); // Advertise service UUID in the main packet
+    pAdvertising->setMinPreferred(0x06);  // For values that are multiples of 1.25ms
+    pAdvertising->setMaxPreferred(0x0C);
+    BLEDevice::startAdvertising();
+    Serial.println("BLE advertising started.");
+}
+
+// Call this from your main loop
+void checkBLEStatus() {
+    if (needsLocationsSave) {
+        needsLocationsSave = false;
+        saveSavedLocations();
+        notifySavedLocationsChange();
+    }
+}

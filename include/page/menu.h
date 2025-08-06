@@ -30,7 +30,8 @@ void drawAppMenu(M5Canvas &canvas, int centerX, int centerY, int radius, int arr
 void action_startNavigation();
 void action_showSettings();
 void action_showGpsInfo();
-void action_showSavedLocations(); // ADDED: Action to show the saved locations page
+void action_showSavedLocations();
+void action_showBluetoothInfo();
 
 
 

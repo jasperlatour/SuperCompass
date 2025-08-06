@@ -12,19 +12,6 @@ void initializeHardwareAndSensors() {
     M5Dial.begin(cfg, true, true); // Initialize M5Dial, with I2C and Display by default
     M5Dial.Encoder.begin(); // Initialize the encoder
     
-    M5Dial.Display.setBrightness(70); // Slightly brighter
-    M5Dial.Display.fillScreen(TFT_BLACK);
-    M5Dial.Display.setTextDatum(MC_DATUM); // Middle Center datum
-    M5Dial.Display.setTextSize(2);
-    M5Dial.Display.drawString("Initializing...", M5Dial.Display.width() / 2, M5Dial.Display.height() / 2 - 70);
-
-    // GPS_Serial (UART1) pin configuration
-    // Your original setup: RX=GPIO1, TX=GPIO2.
-    // Default M5Dial PortA Grove connector: RX=G2 (often GPIO2), TX=G1 (often GPIO1 or another pin for UART1 TX)
-    // Please double-check your M5Dial variant's pinout for PortA and UART1.
-    // For this implementation, I'll use your specified pins (1, 2).
-    // If GPS_Serial is HardwareSerial(1), it uses UART1.
-    // The begin(baud, config, rxPin, txPin) call overrides the default UART1 pins.
     GPS_Serial.begin(9600, SERIAL_8N1, 1, 2); // RX=GPIO1, TX=GPIO2 (as per your original code)
     Serial.println(F("GPS Serial (UART1) configured on RX=1, TX=2 at 9600 baud."));
 
