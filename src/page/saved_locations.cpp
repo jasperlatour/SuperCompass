@@ -6,6 +6,7 @@
 
 std::vector<SavedLocation> savedLocations;
 
+
 // Example initial locations if file doesn't exist (optional)
 void addDefaultLocations() {
     if (savedLocations.empty()) { // Only add if the list is empty after trying to load

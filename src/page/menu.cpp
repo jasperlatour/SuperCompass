@@ -4,6 +4,10 @@
 int selectedLocationIndex = 0;       
 int selectedMenuItemIndex = 0;
 
+#include "page/bluetoothinfo.h"
+
+extern bool bluetoothInfoActive;
+
 // Define the actions for the menu-items
 void action_startNavigation() { // Definitie
     Serial.println("Action: Start Navigation selected");
@@ -33,6 +37,12 @@ void action_showSavedLocations() {
     initSavedLocationsMenu(); // Initialize the saved locations menu
 }
 
+void action_showBluetoothInfo() {
+    Serial.println("Action: Show Bluetooth Info selected");
+    menuActive = false;
+    bluetoothInfoActive = true;
+}
+
 
 // Define your menu-items WITH RawIconData pointers
 #define NUM_ITEMS 5
@@ -43,7 +53,7 @@ MenuItem menuItems[NUM_ITEMS] = {
     {"Settings", action_showSettings,    &icon_more},
     {"select target", action_showSavedLocations,     &icon_target},
     {"gps info",   action_showGpsInfo,     &icon_gps},
-    {"Item 5",   action_showGpsInfo,     &icon_wifi}
+    {"Bluetooth",   action_showBluetoothInfo,     &icon_wifi}
 };
 
 
