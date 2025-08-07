@@ -2,6 +2,7 @@
 #define BLUETOOTH_H
 
 #include "globals_and_includes.h"
+#include "ui/drawing.h"
 
 void setupBLE();
 void notifySavedLocationsChange();
