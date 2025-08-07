@@ -12,6 +12,7 @@ extern uint32_t lastBtConnectedTime;
 #define SERVICE_UUID_SHORT "e393c3ca" // First part of the full UUID for display
 
 void showBluetoothInfoPage() {
+    // Create a fresh canvas to avoid interference with other drawing
     canvas.fillSprite(TFT_BLACK);
     
     // Set text properties
@@ -30,10 +31,10 @@ void showBluetoothInfoPage() {
     
     if (btConnected) {
         canvas.setTextColor(TFT_GREEN);
-        canvas.drawString("Status: Connected", canvas.width()/2, yPos);
+        canvas.drawString("Connected", canvas.width()/2, yPos);
     } else {
         canvas.setTextColor(TFT_YELLOW);
-        canvas.drawString("Status: Ready for Connection", canvas.width()/2, yPos);
+        canvas.drawString("Ready for Connection", canvas.width()/2, yPos);
     }
     yPos += lineHeight;
     
@@ -81,7 +82,7 @@ void showBluetoothInfoPage() {
 }
 
 void handleBluetoothInfoInput() {
-    M5.update(); // Update button state before checking
+    // Don't call M5.update() here as it's already called at the beginning of the main loop
     
     // Short press - return to menu
     if (M5.BtnA.wasPressed()) {
@@ -118,13 +119,7 @@ void resetBluetooth() {
     // The setupBLE() function should handle initialization properly
     setupBLE();
     
-    delay(500); // Small delay for stability
-    
-    // Briefly show success message
-    canvas.fillSprite(TFT_BLACK);
-    canvas.drawString("Reset Complete", canvas.width()/2, canvas.height()/2);
-    canvas.pushSprite(0, 0);
-    delay(700);
+    delay(300); // Small delay for stability
     
     // Go back to info page
     showBluetoothInfoPage();

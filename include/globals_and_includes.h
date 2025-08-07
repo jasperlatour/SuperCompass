@@ -48,6 +48,13 @@ extern bool firstHeadingReading;
 
 extern bool menuActive;
 extern bool savedLocationsMenuActive;
+
+// For popup notifications
+extern bool popupActive;
+extern uint32_t popupEndTime;
+extern String popupMessage;
+extern uint16_t popupTextColor;
+extern uint16_t popupBgColor;
 extern bool gpsinfoActive;
 
 // Encoder Variables

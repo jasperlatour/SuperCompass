@@ -180,12 +180,13 @@ void drawGpsInfo(M5Canvas& canvas, const TinyGPSPlus& gps, int centerX, int cent
         double lat = getLatitude();
         double lon = getLongitude();
         
-        String lat_str = "Lat: " + String(lat, 4);
-        String lng_str = "Lng: " + String(lon, 4);
+        //draws the GPS coordinates
+        // String lat_str = "Lat: " + String(lat, 4);
+        // String lng_str = "Lng: " + String(lon, 4);
 
-        canvas.setTextColor(TFT_BLACK, TFT_WHITE);
-        canvas.drawString(lat_str, centerX, centerY - 10);
-        canvas.drawString(lng_str, centerX, centerY + 10);
+        // canvas.setTextColor(TFT_BLACK, TFT_WHITE);
+        // canvas.drawString(lat_str, centerX, centerY - 10);
+        // canvas.drawString(lng_str, centerX, centerY + 10);
         
         // If using BLE position, show an indicator
         if (usingBlePosition) {
@@ -204,4 +205,28 @@ void drawStatusMessage(M5Canvas& canvas, const char* message, int centerX, int y
     canvas.setTextSize(1);
     canvas.setTextDatum(BC_DATUM); // Bottom Center
     canvas.drawString(message, centerX, yPos);
+}
+
+// Global variables for popup notifications
+bool popupActive = false;
+uint32_t popupEndTime = 0;
+String popupMessage = "";
+uint16_t popupTextColor = TFT_WHITE;
+uint16_t popupBgColor = TFT_BLUE;
+
+void showPopupNotification(const char* message, uint32_t durationMs, uint16_t color, uint16_t bgColor) {
+    Serial.print("Showing popup: ");
+    Serial.println(message);
+    
+    // Store popup information in global variables
+    popupMessage = String(message);
+    popupEndTime = millis() + durationMs;
+    popupActive = true;
+    popupTextColor = color;
+    popupBgColor = bgColor;
+    
+
+    
+    // No delay needed as we're not blocking the main loop
+    M5Dial.Display.display();  // Update the physical display
 }

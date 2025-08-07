@@ -63,6 +63,20 @@ void setup() {
 // ---- MAIN LOOP: Runs repeatedly ----
 void loop() {
     M5.update();          // Essentieel voor knoppen en encoder updates
+    // Handle popup without disrupting normal screen drawing
+    if (popupActive) {
+        // Check if the popup should be cleared
+        if (millis() > popupEndTime) {
+            Serial.println("Clearing popup notification");
+            popupActive = false;
+            // No need to clear the screen as we'll continue with normal drawing
+        } else {
+            // Popup is still active, render popup over whatever is currently shown
+            // We'll still continue with normal screen rendering to keep the background up to date
+            // But we'll overlay the popup at the end of the loop
+
+        }
+    }
 
     if (menuActive) {
         handleMenuInput(); 
@@ -77,18 +91,17 @@ void loop() {
         handleGpsInfoInput();
         canvas.pushSprite(0, 0); 
     } else if (bluetoothInfoActive) {
-        // Make sure M5Dial state is updated before checking input
-        M5.update();
+        // Follow same pattern as other pages
         showBluetoothInfoPage();
         handleBluetoothInfoInput();
+        // No need for M5.update() here as it's already called at the beginning of loop()
     } else if (M5.BtnA.wasPressed()) { // ADDED: Handle button A press
         Serial.println("Button A pressed");
         menuActive = true; // Set menuActive to true to show the menu
         initMenu(); // Reset menu state
         M5Dial.Display.fillScreen(TFT_BLACK); // Clear screen before drawing menu
-    } else {
+    }else {
         processGpsData();
-        
         // Check if we need to save BLE-updated locations
         checkBLEStatus();
 
@@ -131,17 +144,17 @@ void loop() {
         drawCompassLabels(canvas, currentHeadingRadians, centerX, centerY, R);
         drawGpsInfo(canvas, gps, centerX, centerY);
 
-        if (!locationIsValid) {
-            drawStatusMessage(canvas, "No Location Fix", centerX, centerY + 50, TFT_RED, TFT_WHITE);
-        } else if (!targetIsSet) {
-            drawStatusMessage(canvas, "No Target Set", centerX, centerY - 50, TFT_YELLOW, TFT_WHITE);
+        if (!targetIsSet) {
+            drawStatusMessage(canvas, "No Target", centerX, centerY + 50, TFT_RED, TFT_WHITE);
         } else {
-            drawTargetArrow(canvas, arrowAngleOnCompassDegrees, centerX, centerY, R);
-            //drawDistanceToCanvas(canvas, currentLat, currentLon, TARGET_LAT, TARGET_LON, centerX, centerY + R - 20);
+            if (locationIsValid) {
+                drawTargetArrow(canvas, arrowAngleOnCompassDegrees, centerX, centerY, R);
+            }
+            //draw target name
+            drawStatusMessage(canvas, ("Target: " + Setaddress).c_str(), centerX, centerY + 50, TFT_BLUE, TFT_WHITE);
         }
         canvas.pushSprite(0, 0);
 
-        
         if (M5.BtnA.wasHold()) { 
             Serial.println("Returning to menu...");
             menuActive = true;
@@ -149,5 +162,38 @@ void loop() {
             M5Dial.Display.fillScreen(TFT_BLACK); 
         }
     }
-
+    
+    // If popup is active, redraw it over whatever was just drawn
+    if (popupActive) {
+        // Save current canvas properties
+        int oldTextSize = canvas.getTextSizeX();
+        uint8_t oldDatum = canvas.getTextDatum();
+       
+        
+        // Calculate the popup size and position
+        canvas.setTextSize(2);
+        int popupWidth = canvas.textWidth(popupMessage.c_str()) + 40;
+        int popupHeight = 50;
+        int popupX = (canvas.width() - popupWidth) / 2;
+        int popupY = (canvas.height() - popupHeight) / 2;
+        
+        // Draw the popup with semi-transparent effect
+        canvas.fillRoundRect(popupX, popupY, popupWidth, popupHeight, 15, popupBgColor);
+        
+        // Add a white border (2 pixels)
+        canvas.drawRoundRect(popupX, popupY, popupWidth, popupHeight, 15, TFT_WHITE);
+        canvas.drawRoundRect(popupX+1, popupY+1, popupWidth-2, popupHeight-2, 14, TFT_WHITE);
+        
+        // Draw text
+        canvas.setTextColor(popupTextColor);
+        canvas.setTextDatum(MC_DATUM);
+        canvas.drawString(popupMessage, canvas.width() / 2, canvas.height() / 2);
+        
+        // Restore original canvas properties
+        canvas.setTextSize(oldTextSize);
+        canvas.setTextDatum(oldDatum);
+        
+        // Push changes to display
+        canvas.pushSprite(0, 0);
+    }
 }

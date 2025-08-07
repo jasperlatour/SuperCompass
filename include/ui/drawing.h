@@ -55,4 +55,13 @@ void drawGpsInfo(M5Canvas& canvas, const TinyGPSPlus& gps, int centerX, int cent
  */
 void drawStatusMessage(M5Canvas& canvas, const char* message, int centerX, int yPos, uint16_t color = TFT_RED, uint16_t bgColor = TFT_WHITE);
 
+/**
+ * @brief Shows a temporary popup notification on the screen.
+ * @param message The text message to display in the popup.
+ * @param durationMs The duration in milliseconds to show the popup (default 2000ms).
+ * @param color The color of the text (default TFT_WHITE).
+ * @param bgColor The background color for the popup (default TFT_BLUE).
+ */
+void showPopupNotification(const char* message, uint32_t durationMs = 2000, uint16_t color = TFT_WHITE, uint16_t bgColor = TFT_BLUE);
+
 #endif // DRAWING_H

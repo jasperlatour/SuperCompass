@@ -34,12 +34,16 @@ class ServerCallbacks: public BLEServerCallbacks {
       Serial.println("BLE Client Connected");
       btConnected = true;
       lastBtConnectedTime = millis();
+      // Show popup notification for connection
+      showPopupNotification("Connected", 2000, TFT_WHITE, TFT_GREEN);
     }
 
     void onDisconnect(BLEServer* pServer) {
       Serial.println("BLE Client Disconnected");
       btConnected = false;
       BLEDevice::startAdvertising(); // Restart advertising on disconnect
+      // Show popup notification for disconnection
+      showPopupNotification("Disconnected", 2000, TFT_WHITE, TFT_RED);
     }
 };
 
@@ -364,11 +368,6 @@ class CurrentPositionCallbacks : public BLECharacteristicCallbacks {
         Serial.println(value.length());
         
         if (value.length() > 0 && value.length() < 100) { // Limit size
-            // Print raw value for debugging with clear markers
-            Serial.println("--------- RAW BLE POSITION DATA BEGIN ---------");
-            Serial.println(value.c_str());
-            Serial.println("--------- RAW BLE POSITION DATA END ---------");
-            
             try {
                 JsonDocument doc;
                 DeserializationError error = deserializeJson(doc, value);
@@ -379,10 +378,6 @@ class CurrentPositionCallbacks : public BLECharacteristicCallbacks {
                     return;
                 }
                 
-                // Log JSON contents with formatting
-                Serial.println("--------- PARSED JSON DATA BEGIN ---------");
-                serializeJsonPretty(doc, Serial);
-                Serial.println("\n--------- PARSED JSON DATA END ---------");
                 
                 // Handle both naming conventions: "lat"/"lon" and "latitude"/"longitude"
                 double lat = 0;
@@ -426,16 +421,8 @@ class CurrentPositionCallbacks : public BLECharacteristicCallbacks {
                             // Basic distance calculation (not actual distance but good for comparison)
                             double latDiff = BLE_LAT - prevLat;
                             double lonDiff = BLE_LON - prevLon;
-                            double approxDistance = sqrt(latDiff*latDiff + lonDiff*lonDiff) * 111000; // rough meters
-                            Serial.print("Position changed by approximately ");
-                            Serial.print(approxDistance);
-                            Serial.println(" meters from previous BLE position");
-                        }
                         
-                        Serial.println("*** BLE Position set successfully ***");
-                        Serial.print("BLE Position Age: ");
-                        Serial.print(0); // Just set, so age is 0
-                        Serial.println(" ms");
+                        }
                     } else {
                         Serial.println("ERROR: Invalid coordinates received (out of range)");
                         Serial.print("Latitude must be between -90 and 90, got: ");
@@ -580,11 +567,11 @@ void setupBLE() {
 }
 
 
-// Returns true if the BLE position is valid and recent (less than 10 seconds old)
+// Returns true if the BLE position is valid (i.e., has been set).
+// It also logs the age of the position.
 bool isBlePositionValid() {
     static uint32_t lastLogTime = 0;
     uint32_t currentTime = millis();
-    bool isValid = true;
     
     // Only log detailed status every 5 seconds to avoid spamming Serial
     bool shouldLog = (currentTime - lastLogTime > 5000);
@@ -592,35 +579,31 @@ bool isBlePositionValid() {
     if (!blePositionSet) {
         if (shouldLog) {
             Serial.println("BLE Position Status: Not set yet");
+            lastLogTime = currentTime;
         }
-        isValid = false;
-    } else {
-        // Check if position is older than 10 seconds
-        uint32_t positionAge = currentTime - blePositionTime;
-        if (positionAge > 10000) {
-            if (shouldLog) {
-                Serial.print("BLE Position Status: Too old (");
-                Serial.print(positionAge / 1000.0, 1);
-                Serial.println(" seconds)");
-            }
-            isValid = false;
-        } else if (shouldLog) {
+        return false;
+    }
+
+    uint32_t positionAge = currentTime - blePositionTime;
+    if (shouldLog) {
+        if (positionAge > 30000) {
+            Serial.print("BLE Position Status: Stale (");
+            Serial.print(positionAge / 1000.0, 1);
+            Serial.println(" seconds old)");
+        } else {
             Serial.print("BLE Position Status: Valid (");
             Serial.print(positionAge / 1000.0, 1);
             Serial.println(" seconds old)");
-            Serial.print("BLE Position: [");
-            Serial.print(BLE_LAT, 6);
-            Serial.print(", ");
-            Serial.print(BLE_LON, 6);
-            Serial.println("]");
         }
-    }
-    
-    if (shouldLog) {
+        Serial.print("BLE Position: [");
+        Serial.print(BLE_LAT, 6);
+        Serial.print(", ");
+        Serial.print(BLE_LON, 6);
+        Serial.println("]");
         lastLogTime = currentTime;
     }
     
-    return isValid;
+    return true;
 }
 
 // Get the current BLE position
@@ -683,10 +666,5 @@ void checkBLEStatus() {
         saveSavedLocations();
         notifySavedLocationsChange();
     }
-    
-    // Reset BLE position after 60 seconds without updates
-    if (blePositionSet && millis() - blePositionTime > 60000) {
-        Serial.println("BLE position expired - no updates in 60 seconds");
-        blePositionSet = false;
-    }
 }
+
