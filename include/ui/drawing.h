@@ -7,13 +7,15 @@
 // Function declarations
 
 /**
- * @brief Draws the static compass background onto the provided canvas.
+ * @brief Draws the compass background (outer rim, ticks, cardinal arrows) rotated by heading.
+ *        The red (north) arrow will always point toward true north while the dial rotates.
  * @param c Reference to the M5Canvas to draw on.
  * @param centerX The x-coordinate of the canvas center.
  * @param centerY The y-coordinate of the canvas center.
  * @param R The radius of the main compass circle.
+ * @param heading_rad Current heading in radians (0 = facing north / up).
  */
-void drawCompassBackgroundToCanvas(M5Canvas& c, int centerX, int centerY, int R);
+void drawCompassBackgroundToCanvas(M5Canvas& c, int centerX, int centerY, int R, double heading_rad);
 
 /**
  * @brief Draws the dynamic compass labels (N, E, S, W) rotating with heading.
@@ -63,5 +65,12 @@ void drawStatusMessage(M5Canvas& canvas, const char* message, int centerX, int y
  * @param bgColor The background color for the popup (default TFT_BLUE).
  */
 void showPopupNotification(const char* message, uint32_t durationMs = 2000, uint16_t color = TFT_WHITE, uint16_t bgColor = TFT_BLUE);
+
+/**
+ * @brief If an active popup exists, draw it onto the provided canvas (no pushSprite inside).
+ *        Automatically clears the popup state after its duration.
+ * @param canvas Reference to the M5Canvas to draw on.
+ */
+void drawPopupIfActive(M5Canvas& canvas);
 
 #endif // DRAWING_H

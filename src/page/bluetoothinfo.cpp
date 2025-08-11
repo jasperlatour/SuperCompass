@@ -13,7 +13,8 @@ extern uint32_t lastBtConnectedTime;
 
 void showBluetoothInfoPage() {
     // Create a fresh canvas to avoid interference with other drawing
-    canvas.fillSprite(TFT_BLACK);
+        // Prepare canvas (don't push yet; main loop will handle popup + push)
+        canvas.fillSprite(TFT_BLACK);
     
     // Set text properties
     canvas.setTextDatum(MC_DATUM); // Middle-Center alignment
@@ -78,7 +79,7 @@ void showBluetoothInfoPage() {
     canvas.setTextColor(TFT_CYAN);
     canvas.drawString("BLE " + String(SERVICE_UUID_SHORT), canvas.width()/2, indicatorY);
     
-    canvas.pushSprite(0, 0);
+        // Don't push here; main loop will call drawPopupIfActive + pushSprite
 }
 
 void handleBluetoothInfoInput() {
@@ -122,5 +123,5 @@ void resetBluetooth() {
     delay(300); // Small delay for stability
     
     // Go back to info page
-    showBluetoothInfoPage();
+        // Caller (reset flow) will handle popup compose+push
 }
