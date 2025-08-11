@@ -63,38 +63,30 @@ void setup() {
 // ---- MAIN LOOP: Runs repeatedly ----
 void loop() {
     M5.update();          // Essentieel voor knoppen en encoder updates
-    // Handle popup without disrupting normal screen drawing
-    if (popupActive) {
-        // Check if the popup should be cleared
-        if (millis() > popupEndTime) {
-            Serial.println("Clearing popup notification");
-            popupActive = false;
-            // No need to clear the screen as we'll continue with normal drawing
-        } else {
-            // Popup is still active, render popup over whatever is currently shown
-            // We'll still continue with normal screen rendering to keep the background up to date
-            // But we'll overlay the popup at the end of the loop
-
-        }
-    }
+    // popup lifetime handled later in drawPopupIfActive()
 
     if (menuActive) {
         handleMenuInput(); 
         drawAppMenu(canvas, centerX, centerY, R / 2, 32);
+        drawPopupIfActive(canvas); // compose popup before single push
         canvas.pushSprite(0, 0); 
     } else if (savedLocationsMenuActive) {
         handleSavedLocationsInput();
         drawSavedLocationsMenu(canvas, centerX, centerY);
+        drawPopupIfActive(canvas);
         canvas.pushSprite(0, 0); 
     } else if (gpsinfoActive) { // ADDED: Handle GPS info page
         drawGpsInfoPage(canvas, centerX, centerY);
         handleGpsInfoInput();
+        drawPopupIfActive(canvas);
         canvas.pushSprite(0, 0); 
     } else if (bluetoothInfoActive) {
         // Follow same pattern as other pages
         showBluetoothInfoPage();
         handleBluetoothInfoInput();
         // No need for M5.update() here as it's already called at the beginning of loop()
+    drawPopupIfActive(canvas);
+    canvas.pushSprite(0,0);
     } else if (M5.BtnA.wasPressed()) { // ADDED: Handle button A press
         Serial.println("Button A pressed");
         menuActive = true; // Set menuActive to true to show the menu
@@ -140,7 +132,7 @@ void loop() {
         }
 
         canvas.fillSprite(TFT_BLACK); // Begin met een schone canvas
-        drawCompassBackgroundToCanvas(canvas, centerX, centerY, R);
+    drawCompassBackgroundToCanvas(canvas, centerX, centerY, R, currentHeadingRadians);
         drawCompassLabels(canvas, currentHeadingRadians, centerX, centerY, R);
         drawGpsInfo(canvas, gps, centerX, centerY);
 
@@ -153,7 +145,8 @@ void loop() {
             //draw target name
             drawStatusMessage(canvas, ("Target: " + Setaddress).c_str(), centerX, centerY + 50, TFT_BLUE, TFT_WHITE);
         }
-        canvas.pushSprite(0, 0);
+    drawPopupIfActive(canvas);
+    canvas.pushSprite(0, 0);
 
         if (M5.BtnA.wasHold()) { 
             Serial.println("Returning to menu...");
@@ -163,37 +156,4 @@ void loop() {
         }
     }
     
-    // If popup is active, redraw it over whatever was just drawn
-    if (popupActive) {
-        // Save current canvas properties
-        int oldTextSize = canvas.getTextSizeX();
-        uint8_t oldDatum = canvas.getTextDatum();
-       
-        
-        // Calculate the popup size and position
-        canvas.setTextSize(2);
-        int popupWidth = canvas.textWidth(popupMessage.c_str()) + 40;
-        int popupHeight = 50;
-        int popupX = (canvas.width() - popupWidth) / 2;
-        int popupY = (canvas.height() - popupHeight) / 2;
-        
-        // Draw the popup with semi-transparent effect
-        canvas.fillRoundRect(popupX, popupY, popupWidth, popupHeight, 15, popupBgColor);
-        
-        // Add a white border (2 pixels)
-        canvas.drawRoundRect(popupX, popupY, popupWidth, popupHeight, 15, TFT_WHITE);
-        canvas.drawRoundRect(popupX+1, popupY+1, popupWidth-2, popupHeight-2, 14, TFT_WHITE);
-        
-        // Draw text
-        canvas.setTextColor(popupTextColor);
-        canvas.setTextDatum(MC_DATUM);
-        canvas.drawString(popupMessage, canvas.width() / 2, canvas.height() / 2);
-        
-        // Restore original canvas properties
-        canvas.setTextSize(oldTextSize);
-        canvas.setTextDatum(oldDatum);
-        
-        // Push changes to display
-        canvas.pushSprite(0, 0);
-    }
 }
