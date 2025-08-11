@@ -6,6 +6,7 @@
 void showBluetoothInfoPage();
 void handleBluetoothInfoInput();
 void resetBluetooth();
+void disconnectBluetooth();
 
 
 #endif // BLUETOETOOTHINFO_H

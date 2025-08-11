@@ -48,6 +48,7 @@ extern bool firstHeadingReading;
 
 extern bool menuActive;
 extern bool savedLocationsMenuActive;
+extern bool settingsMenuActive; // Settings page active
 
 // For popup notifications
 extern bool popupActive;
@@ -62,6 +63,13 @@ static int encoder_click_accumulator = 0;
 const int ENCODER_COUNTS_PER_DETENT = 4;
 
 extern bool targetIsSet;
+
+// User-configurable runtime settings
+extern bool soundEnabled;   // When false, suppress UI beeps
+extern bool touchEnabled;   // When false, ignore touch input
+extern int screenBrightness; // Screen brightness level (0-255)
+extern int soundLevel;      // Sound volume level (0-255)
+
 
 // BLE position variables
 extern bool blePositionSet;        // Whether we have a valid position from BLE

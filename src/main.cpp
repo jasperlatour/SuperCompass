@@ -2,6 +2,13 @@ bool menuActive = false;
 bool savedLocationsMenuActive = false;
 bool gpsinfoActive = false;
 bool bluetoothInfoActive = false;
+bool settingsMenuActive = false;
+
+// Runtime settings defaults
+bool soundEnabled = true;
+bool touchEnabled = true;
+int screenBrightness = 128;   // Default brightness (0-255)
+int soundLevel = 128;         // Default sound level (0-255)
 
 // ---- Includes ----
 #include "globals_and_includes.h" // Includes config.h
@@ -12,6 +19,7 @@ bool bluetoothInfoActive = false;
 #include "gpsinfo.h"
 #include "bluetooth.h"
 #include "page/bluetoothinfo.h"
+#include "page/settings.h"
 
 // ---- Global Object Definitions (reeds 'extern' verklaard in globals_and_includes.h) ----
 M5Canvas canvas(&M5Dial.Display);
@@ -32,7 +40,15 @@ void setup() {
     pinMode(GPIO_NUM_46, OUTPUT);
     digitalWrite(GPIO_NUM_46,HIGH);
     while (!Serial && millis() < 2000);
-    Serial.println(F("\n--- M5Dial Navigator Starting Up ---"));
+    
+    // Check wake-up reason
+    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+    if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0) {
+        Serial.println(F("\n--- M5Dial Waking Up From Button Press ---"));
+    } else {
+        Serial.println(F("\n--- M5Dial Navigator Starting Up ---"));
+    }
+    
     setupBLE();
 
     // Initialize M5Dial hardware, display, canvas, GPS, QMC compass, and display geometry
@@ -49,6 +65,7 @@ void setup() {
         while (1) { delay(1000); } 
     }
     Serial.println("FileSystem mounted successfully.");
+    loadSettings(); // load persisted sound/touch settings
 
     initMenu(); // Initialiseer het menu
     loadSavedLocations();
@@ -70,6 +87,11 @@ void loop() {
         drawAppMenu(canvas, centerX, centerY, R / 2, 32);
         drawPopupIfActive(canvas); // compose popup before single push
         canvas.pushSprite(0, 0); 
+    } else if (settingsMenuActive) {
+        handleSettingsInput();
+        drawSettingsMenu(canvas, centerX, centerY);
+        drawPopupIfActive(canvas);
+        canvas.pushSprite(0,0);
     } else if (savedLocationsMenuActive) {
         handleSavedLocationsInput();
         drawSavedLocationsMenu(canvas, centerX, centerY);

@@ -66,18 +66,19 @@ void showBluetoothInfoPage() {
         canvas.drawString(durationStr, canvas.width()/2, yPos);
         yPos += lineHeight;
     }
-    
-    // Add instruction text for controls
-    canvas.setTextSize(1);
-    canvas.setTextColor(TFT_WHITE);
-    canvas.drawString("Press button: Return to menu", canvas.width()/2, yPos + 15);
-    canvas.drawString("Hold button 3s: Reset Bluetooth", canvas.width()/2, yPos + 35);
+
     
     // Add a visual indicator instead of a touchable button
-    int indicatorY = yPos + 60;
-    canvas.drawRoundRect((canvas.width() - 120) / 2, indicatorY - 15, 120, 30, 5, TFT_BLUE);
-    canvas.setTextColor(TFT_CYAN);
-    canvas.drawString("BLE " + String(SERVICE_UUID_SHORT), canvas.width()/2, indicatorY);
+    // Draw disconnect button only if connected
+    if (btConnected) {
+        int indicatorY = yPos + 35; // Adjusted position for disconnect button
+        int btnW = 140; int btnH = 40; int btnX = (canvas.width()-btnW)/2; int btnY = indicatorY - btnH/2;
+        canvas.fillRoundRect(btnX, btnY, btnW, btnH, 8, TFT_RED);
+        canvas.setTextColor(TFT_WHITE);
+        canvas.drawString("Disconnect", canvas.width()/2, indicatorY);
+        // store bounds (unused but kept for potential future logic)
+        static int lastBtnX=0,lastBtnY=0,lastBtnW=0,lastBtnH=0; lastBtnX=btnX; lastBtnY=btnY; lastBtnW=btnW; lastBtnH=btnH;
+    }
     
         // Don't push here; main loop will call drawPopupIfActive + pushSprite
 }
@@ -92,10 +93,25 @@ void handleBluetoothInfoInput() {
         Serial.println("Returning to menu from Bluetooth info");
     }
     
-    // Long press (3 seconds) - reset Bluetooth
-    if (M5.BtnA.pressedFor(3000)) {
-        resetBluetooth();
+    // Touch button detection (disconnect only if connected)
+    if(touchEnabled){
+        static int btnX,btnY,btnW,btnH; // will be set by drawing code via static storage; safe fallback
+        auto t = M5Dial.Touch.getDetail();
+        if(t.wasClicked()){
+            if(btConnected){
+                // Recompute button bounds (match drawing)
+                int w = M5Dial.Display.width();
+                int indicatorY = 70 + 25*4 + 70; // yPos logic mirrored
+                int calcBtnW=140; int calcBtnH=40; int calcBtnX=(w-calcBtnW)/2; int calcBtnY=indicatorY - calcBtnH/2; 
+                if(t.x>=calcBtnX && t.x<calcBtnX+calcBtnW && t.y>=calcBtnY && t.y<calcBtnY+calcBtnH){
+                    disconnectBluetooth();
+                    showPopupNotification("Disconnecting",1500,TFT_WHITE,TFT_RED);
+                }
+            }
+            if(soundEnabled) M5Dial.Speaker.tone(650,25);
+        }
     }
+    // Removed long-press actions per new UI spec
     
     // Check for encoder activity - can be used for additional interaction
     int encoderValue = M5Dial.Encoder.read();
