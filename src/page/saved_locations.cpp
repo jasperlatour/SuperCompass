@@ -1,5 +1,6 @@
 #include "saved_locations.h"
 #include "menu.h"
+#include "bluetooth.h" // For publishTargetCharacteristic / publishReady
 
 #define FileSystem SPIFFS
 #define SAVED_LOCATIONS_FILE "/saved_locations.json"
@@ -191,6 +192,11 @@ void handleSavedLocationsInput() {
             targetIsSet = true; 
             
             Serial.print("Target set from saved: "); Serial.println(Setaddress);
+
+            // Immediately publish updated target to BLE so the connected app sees change
+            publishTargetCharacteristic();
+            // Update ready characteristic (hasTarget field)
+            publishReady(true);
             
             savedLocationsMenuActive = false; 
             menuActive = false;             

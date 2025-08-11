@@ -4,6 +4,7 @@
 
 #include "globals_and_includes.h"
 #include "saved_locations.h"
+#include "page/settings.h"
 
 
 
@@ -18,6 +19,9 @@ typedef struct {
 extern MenuItem menuItems[];
 extern int numMenuItems;
 extern int selectedMenuItemIndex;
+extern bool settingsMenuActive;
+extern bool soundEnabled;
+extern bool touchEnabled;
 
 
 // Functies voor menu beheer

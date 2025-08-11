@@ -18,7 +18,9 @@ void action_startNavigation() { // Definitie
 
 void action_showSettings() { // Definitie
     Serial.println("Action: Show Settings selected");
-    // ...
+    menuActive = false;
+    settingsMenuActive = true;
+    initSettingsMenu();
 }
 
 void action_showGpsInfo() { // Definitie
@@ -168,6 +170,7 @@ void handleMenuInput() {
             if (selectedMenuItemIndex >= NUM_ITEMS) {
                 selectedMenuItemIndex = 0; // Wrap around
             }
+            if(soundEnabled){ M5Dial.Speaker.tone(700,18);}            
         }
         encoder_click_accumulator %= ENCODER_COUNTS_PER_DETENT; // Keep the remainder
     }
@@ -179,6 +182,7 @@ void handleMenuInput() {
             if (selectedMenuItemIndex < 0) {
                 selectedMenuItemIndex = NUM_ITEMS - 1; // Wrap around
             }
+            if(soundEnabled){ M5Dial.Speaker.tone(600,18);}            
         }
         // Keep the remainder, preserving sign.
         // The modulo operator behavior with negative numbers can vary, so ensure it's correct.
@@ -189,11 +193,37 @@ void handleMenuInput() {
 
     // Check for button press to execute the selected action
     if (M5.BtnA.wasPressed()) {
+        if(soundEnabled){ M5Dial.Speaker.tone(1000,40);}        
         // Get the action function pointer for the selected menu item
         void (*selectedAction)() = menuItems[selectedMenuItemIndex].action;
         // Execute the action if it's valid
         if (selectedAction != nullptr) {
             selectedAction(); // Call the action function
         } 
+    }
+
+    // Touch input (if enabled)
+    if(touchEnabled){
+        auto t = M5Dial.Touch.getDetail();
+        if(t.wasClicked()){
+            // Direct activation when tapping an icon (closest one)
+            int placement_radius = static_cast<int>( (M5Dial.Display.width()/2) * 0.78f );
+            const float angle_step_degrees = 360.0f / NUM_ITEMS;
+            const float start_angle_degrees = 90.0f;
+            int tx = t.x - M5Dial.Display.width()/2;
+            int ty = M5Dial.Display.height()/2 - t.y; // invert Y
+            float touchAngle = atan2(ty, tx) * 180.0f / M_PI; if(touchAngle < 0) touchAngle += 360.0f;
+            int closestIndex = 0; float smallestDiff = 1000;
+            for(int i=0;i<NUM_ITEMS;++i){
+                float item_angle_deg = start_angle_degrees - (i * angle_step_degrees);
+                item_angle_deg = fmod(item_angle_deg+360.0f,360.0f);
+                float diff = fabs(item_angle_deg - touchAngle); if(diff>180) diff = 360-diff;
+                if(diff < smallestDiff){ smallestDiff = diff; closestIndex = i; }
+            }
+            selectedMenuItemIndex = closestIndex;
+            if(soundEnabled) M5Dial.Speaker.tone(900,25);
+            void (*selectedAction)() = menuItems[selectedMenuItemIndex].action;
+            if(selectedAction){ if(soundEnabled) M5Dial.Speaker.tone(1200,30); selectedAction(); }
+        }
     }
 }
