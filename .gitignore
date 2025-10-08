@@ -6,3 +6,6 @@
 .vscode/ipch
 .pio/build/project.checksum
 .pio/build/m5stack-stamps3/idedata.json
+.pio/build/project.checksum
+.vscode
+
