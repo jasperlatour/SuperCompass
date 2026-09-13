@@ -9,3 +9,6 @@
 .pio/build/project.checksum
 .vscode
 
+# Real WiFi/AP credentials - copy secrets.cpp.example to secrets.cpp and edit it
+src/secrets.cpp
+

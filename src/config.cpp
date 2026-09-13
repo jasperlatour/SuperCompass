@@ -1,11 +1,8 @@
 #include "config.h"
 
-// ---- Definitions for 'extern const' variables from config.h ----
-const char *station_ssid = "REDACTED_WIFI_SSID";
-const char *station_password = "REDACTED_WIFI_PASSWORD";
-const char *ap_ssid = "M5Dial-TargetSetter";
-const char *ap_password = "REDACTED_AP_PASSWORD"; // Or NULL for an open network
-
+// ---- WiFi/AP credentials ----
+// Defined in src/secrets.cpp, which is gitignored and never committed.
+// See src/secrets.cpp.example for the template.
 
 const int offset_x = 0;
 const int offset_y = 0;
