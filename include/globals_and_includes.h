@@ -16,8 +16,9 @@
 #include <SPIFFS.h>
 
 // ---- Custom Project Headers ----
-#include "config.h" 
-#include "icons.h"        
+#include "config.h"
+#include "icons.h"
+#include "theme.h"
 // Forward declare functions from drawing.h and calculations.h or include them if no circular dependencies
 // #include "drawing.h"
 // #include "calculations.h"
@@ -57,6 +58,7 @@ extern String popupMessage;
 extern uint16_t popupTextColor;
 extern uint16_t popupBgColor;
 extern bool gpsinfoActive;
+extern bool compassCalibrationActive;
 
 // Encoder Variables
 static int encoder_click_accumulator = 0;

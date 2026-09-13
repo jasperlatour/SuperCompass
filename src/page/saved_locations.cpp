@@ -11,21 +11,10 @@ std::vector<SavedLocation> savedLocations;
 // Example initial locations if file doesn't exist (optional)
 void addDefaultLocations() {
     if (savedLocations.empty()) { // Only add if the list is empty after trying to load
-        const char* name1 = "Eindhoven";
-        char* name1_copy = new char[strlen(name1) + 1];
-        strcpy(name1_copy, name1);
-        savedLocations.push_back({name1_copy, 51.4392648, 5.478633});
+        savedLocations.push_back({"Eindhoven", 51.4392648, 5.478633});
+        savedLocations.push_back({"Helmond", 51.4790956, 5.6557686});
+        savedLocations.push_back({"Parijs", 48.8534951, 2.3483915});
 
-        const char* name2 = "Helmond";
-        char* name2_copy = new char[strlen(name2) + 1];
-        strcpy(name2_copy, name2);
-        savedLocations.push_back({name2_copy, 51.4790956, 5.6557686});
-
-        const char* name3 = "Parijs";
-        char* name3_copy = new char[strlen(name3) + 1];
-        strcpy(name3_copy, name3);
-        savedLocations.push_back({name3_copy, 48.8534951, 2.3483915});
-        
         saveSavedLocations(); // Save them if added
     }
 }
@@ -43,22 +32,15 @@ void loadSavedLocations() {
                 Serial.println(error.c_str());
             } else {
                 JsonArray array = doc.as<JsonArray>();
-
-                // Before clearing, delete any dynamically allocated names from the current vector
-                for (const auto& loc : savedLocations) {
-                    delete[] loc.name; // Free memory if it was dynamically allocated
-                }
-                savedLocations.clear(); // Now clear the vector of SavedLocation objects
+                savedLocations.clear();
 
                 for (JsonObject obj : array) {
-                    const char* name_from_json = obj["name"]; 
+                    const char* name_from_json = obj["name"];
                     double lat_from_json = obj["lat"]; //.as<double>(); // Be explicit if needed
                     double lon_from_json = obj["lon"]; //.as<double>();
 
                     if (name_from_json) { // Check if name exists in JSON
-                        char* name_copy = new char[strlen(name_from_json) + 1];
-                        strcpy(name_copy, name_from_json);
-                        savedLocations.push_back({name_copy, lat_from_json, lon_from_json});
+                        savedLocations.push_back({String(name_from_json), lat_from_json, lon_from_json});
                     } else {
                         Serial.println(F("Warning: Location in JSON missing name. Skipping."));
                     }
@@ -83,7 +65,7 @@ void saveSavedLocations() {
         JsonArray array = doc.to<JsonArray>();
         for (const auto& loc : savedLocations) {
             JsonObject obj = array.createNestedObject();
-            obj["name"] = loc.name; // If name is String, this is fine. If const char*, also fine.
+            obj["name"] = loc.name;
             obj["lat"] = loc.lat;
             obj["lon"] = loc.lon;
         }
@@ -104,13 +86,13 @@ void initSavedLocationsMenu() {
 }
 
 void drawSavedLocationsMenu(M5Canvas &canvas, int centerX, int centerY) {
-    canvas.fillSprite(TFT_BLACK);
+    canvas.fillSprite(THEME_BG);
     canvas.setTextDatum(MC_DATUM); // Center datum for all text
-    canvas.setTextColor(TFT_WHITE);
+    canvas.setTextColor(THEME_ACCENT_PRIMARY);
 
-    // Draw Title
+    // Draw Title (short enough to fit the round panel's narrower band at this height)
     canvas.setTextSize(2);
-    canvas.drawString("Saved Locations", centerX, 50);
+    canvas.drawString("Locations", centerX, 40);
 
     // Define Y positions for the items
     int selectedY = centerY; // Center for the selected item
@@ -121,15 +103,15 @@ void drawSavedLocationsMenu(M5Canvas &canvas, int centerX, int centerY) {
     if (savedLocations.size() > 1) { // Only show if there's more than one item
         int prevIndex = (selectedLocationIndex - 1 + savedLocations.size()) % savedLocations.size();
         canvas.setTextSize(1); // Smaller font size
-        canvas.setTextColor(TFT_WHITE);
-        canvas.drawString(String(savedLocations[prevIndex].name), centerX, prevY);
+        canvas.setTextColor(THEME_TEXT_DIM);
+        canvas.drawString(savedLocations[prevIndex].name, centerX, prevY);
     }
 
     // Display Selected Item
     if (savedLocations.size() > 0) { // Ensure there's at least one item to display
         canvas.setTextSize(3); // Larger font size
-        canvas.setTextColor(TFT_YELLOW); // Highlight selected item
-        canvas.drawString(String(savedLocations[selectedLocationIndex].name), centerX, selectedY);
+        canvas.setTextColor(THEME_ACCENT_PRIMARY); // Highlight selected item
+        canvas.drawString(savedLocations[selectedLocationIndex].name, centerX, selectedY);
     }
 
 
@@ -137,13 +119,13 @@ void drawSavedLocationsMenu(M5Canvas &canvas, int centerX, int centerY) {
     if (savedLocations.size() > 1) { // Only show if there's more than one item
         int nextIndex = (selectedLocationIndex + 1) % savedLocations.size();
         canvas.setTextSize(1); // Smaller font size
-        canvas.setTextColor(TFT_WHITE);
-        canvas.drawString(String(savedLocations[nextIndex].name), centerX, nextY);
+        canvas.setTextColor(THEME_TEXT_DIM);
+        canvas.drawString(savedLocations[nextIndex].name, centerX, nextY);
     }
 
     // Footer instructions
     canvas.setTextSize(1); // Reset text size for footer
-    canvas.setTextColor(TFT_CYAN);
+    canvas.setTextColor(THEME_TEXT_DIM);
     canvas.drawString("Press to Select", centerX, canvas.height() - 25);
 }
 
@@ -188,7 +170,7 @@ void handleSavedLocationsInput() {
         if (!savedLocations.empty()) {
             TARGET_LAT = savedLocations[selectedLocationIndex].lat;
             TARGET_LON = savedLocations[selectedLocationIndex].lon;
-            Setaddress = savedLocations[selectedLocationIndex].name; // If name is const char*, this is fine. If String, Setaddress should be String.
+            Setaddress = savedLocations[selectedLocationIndex].name;
             targetIsSet = true; 
             
             Serial.print("Target set from saved: "); Serial.println(Setaddress);

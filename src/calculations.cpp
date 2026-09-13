@@ -15,6 +15,20 @@ double calculateTargetBearing(double lat1Deg, double lon1Deg, double lat2Deg, do
     return bearingDeg;
 }
 
+double calculateDistanceMeters(double lat1Deg, double lon1Deg, double lat2Deg, double lon2Deg) {
+    const double earthRadiusMeters = 6371000.0;
+    double lat1Rad = lat1Deg * M_PI / 180.0;
+    double lat2Rad = lat2Deg * M_PI / 180.0;
+    double dLatRad = (lat2Deg - lat1Deg) * M_PI / 180.0;
+    double dLonRad = (lon2Deg - lon1Deg) * M_PI / 180.0;
+
+    double a = sin(dLatRad / 2) * sin(dLatRad / 2) +
+               cos(lat1Rad) * cos(lat2Rad) *
+               sin(dLonRad / 2) * sin(dLonRad / 2);
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadiusMeters * c;
+}
+
 double calculateTrueHeading(MechaQMC5883 &sensor, float offsetX, float offsetY, float scaleX, float scaleY, float declination) {
     int x, y, z; // Variables to store raw sensor readings
 

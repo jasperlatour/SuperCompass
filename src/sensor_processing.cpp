@@ -11,6 +11,7 @@ void initializeHardwareAndSensors() {
     // Consider enabling power for PortA if GPS is connected there and needs it.
     // cfg.external_power = true; // If PortA needs to supply power via M5Dial control
     M5Dial.begin(cfg, true, true); // Initialize M5Dial, with I2C and Display by default
+    M5Dial.Display.wakeup(); // Ensure display is awake after deep sleep
     M5Dial.Encoder.begin(); // Initialize the encoder
     
     GPS_Serial.begin(9600, SERIAL_8N1, 1, 2); // RX=GPIO1, TX=GPIO2 (as per your original code)

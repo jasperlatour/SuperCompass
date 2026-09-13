@@ -4,10 +4,12 @@
 // Defined in src/secrets.cpp, which is gitignored and never committed.
 // See src/secrets.cpp.example for the template.
 
-const int offset_x = 0;
-const int offset_y = 0;
-const float scale_x = 1.0;
-const float scale_y = 1.0;
+// Defaults until "Calibrate Compass" is run; loadSettings() overwrites these
+// from persisted values on boot if a calibration has been saved before.
+int offset_x = 0;
+int offset_y = 0;
+float scale_x = 1.0;
+float scale_y = 1.0;
 const double MAGNETIC_DECLINATION = 1.7; // Example for your location
 
 const float HEADING_SMOOTHING_FACTOR = 0.1;

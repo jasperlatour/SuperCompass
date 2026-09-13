@@ -65,26 +65,26 @@ bool hasFix()  {
 
 // Drawing function
 void drawGpsInfoPage(M5Canvas &canvas, int centerX, int centerY) {
-    canvas.fillSprite(TFT_BLACK); // Clear the screen
-    canvas.setTextColor(TFT_WHITE, TFT_BLACK);
+    canvas.fillSprite(THEME_BG); // Clear the screen
+    canvas.setTextColor(THEME_TEXT_PRIMARY, THEME_BG);
 
     char buffer[50]; // Buffer for formatting strings
 
     int yPos = 30; // Adjusted initial Y position for drawing text, considering centering
-    int lineHeight = 25; // Adjusted line height for better spacing
+    int lineHeight = 22; // Adjusted line height for better spacing
 
     // --- Centering Text ---
     canvas.setTextDatum(MC_DATUM); // Middle-Center datum for all text
-    
+
     // Check if we're using BLE position
     bool usingBlePosition = (fixQuality_ == 9);
-    
+
     // Show position source
     if (usingBlePosition) {
-        canvas.setTextColor(TFT_BLUE, TFT_BLACK);
+        canvas.setTextColor(TFT_SKYBLUE, THEME_BG);
         canvas.drawString("Using BLE Position", centerX, yPos);
         yPos += lineHeight;
-        canvas.setTextColor(TFT_WHITE, TFT_BLACK);
+        canvas.setTextColor(THEME_TEXT_PRIMARY, THEME_BG);
     }
 
     // Latitude
@@ -127,9 +127,11 @@ void drawGpsInfoPage(M5Canvas &canvas, int centerX, int centerY) {
     // Has Fix
     sprintf(buffer, "Has Fix: %s", hasFix() ? "Yes" : "No");
     canvas.drawString(buffer, centerX, yPos);
-    yPos += lineHeight * 2; // Add extra space before the back instruction
 
-    canvas.drawString("Press B to go back", centerX, canvas.height() - 20); // Draw "Back" instruction
+    // Short enough to stay inside the round panel's narrow bottom band, and
+    // correct - the M5Dial only has one physical button.
+    canvas.setTextColor(THEME_TEXT_DIM, THEME_BG);
+    canvas.drawString("Press: back", centerX, canvas.height() - 16);
 }
 
 void handleGpsInfoInput(){

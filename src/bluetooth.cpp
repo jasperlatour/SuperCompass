@@ -138,7 +138,7 @@ static void scheduleNextLocationsChunk(){
     for(; locationsChunkNextIndex < locationsChunkTotal && count < LOCATIONS_PER_CHUNK; ++locationsChunkNextIndex, ++count){
         if(locationsChunkNextIndex < savedLocations.size()){
             JsonObject o = items.createNestedObject();
-            o["name"] = savedLocations[locationsChunkNextIndex].name ? savedLocations[locationsChunkNextIndex].name : "Unnamed";
+            o["name"] = savedLocations[locationsChunkNextIndex].name.length() ? savedLocations[locationsChunkNextIndex].name : "Unnamed";
             o["lat"] = savedLocations[locationsChunkNextIndex].lat;
             o["lon"] = savedLocations[locationsChunkNextIndex].lon;
         }
@@ -241,7 +241,7 @@ class LocationsListCallbacks : public BLECharacteristicCallbacks {
                     JsonObject obj = array.add<JsonObject>();
                     
                     // Safely handle the name
-                    if (savedLocations[i].name != nullptr) {
+                    if (savedLocations[i].name.length() > 0) {
                         obj["name"] = savedLocations[i].name;
                     } else {
                         obj["name"] = "Unnamed";
@@ -520,13 +520,13 @@ void checkBLEStatus() {
                     break;
                 }
                 double lat=0, lon=0; bool valid=false;
-                if(doc.containsKey("lat") && doc.containsKey("lon")){
+                if(doc["lat"].is<double>() && doc["lon"].is<double>()){
                     lat = doc["lat"].as<double>(); lon = doc["lon"].as<double>(); valid=true; }
-                else if(doc.containsKey("latitude") && doc.containsKey("longitude")){
+                else if(doc["latitude"].is<double>() && doc["longitude"].is<double>()){
                     lat = doc["latitude"].as<double>(); lon = doc["longitude"].as<double>(); valid=true; }
                 if(valid && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180){
                     TARGET_LAT = lat; TARGET_LON = lon; targetIsSet = true;
-                    if(doc.containsKey("name")) Setaddress = doc["name"].as<const char*>(); else Setaddress = "BLE Target";
+                    if(doc["name"].is<const char*>()) Setaddress = doc["name"].as<const char*>(); else Setaddress = "BLE Target";
                     const size_t MAX_ADDR_LEN = 40; if(Setaddress.length() > MAX_ADDR_LEN) Setaddress.remove(MAX_ADDR_LEN);
                     targetNeedsPublish = true; // publish updated target soon
                 } else {
@@ -541,32 +541,27 @@ void checkBLEStatus() {
                 const char* action = doc["action"].as<const char*>();
                 if(!action){ g_bleStats.rxParseErrors++; Serial.println("Locations: missing action"); break; }
                 if(strcmp(action,"add")==0){
-                    JsonObject data = doc.containsKey("data") ? doc["data"] : doc["location"];
+                    JsonObject data = doc["data"].is<JsonObject>() ? doc["data"] : doc["location"];
                     if(!data){ Serial.println("Add missing data/location"); break; }
                     const char* name = data["name"] | "Unnamed";
                     double lat=0, lon=0; bool have=false;
-                    if(data.containsKey("lat") && data.containsKey("lon")){ lat=data["lat"]; lon=data["lon"]; have=true; }
-                    else if(data.containsKey("latitude") && data.containsKey("longitude")){ lat=data["latitude"]; lon=data["longitude"]; have=true; }
+                    if(data["lat"].is<double>() && data["lon"].is<double>()){ lat=data["lat"]; lon=data["lon"]; have=true; }
+                    else if(data["latitude"].is<double>() && data["longitude"].is<double>()){ lat=data["latitude"]; lon=data["longitude"]; have=true; }
                     if(have && name && lat>=-90 && lat<=90 && lon>=-180 && lon<=180){
-                        char* name_copy = new char[strlen(name)+1]; strcpy(name_copy, name);
-                        savedLocations.push_back({name_copy, lat, lon}); needsLocationsSave = true; }
+                        savedLocations.push_back({String(name), lat, lon}); needsLocationsSave = true; }
                     else { Serial.println("Add invalid fields"); }
                 } else if(strcmp(action,"edit")==0){
                     int index = doc["index"] | -1;
                     JsonObject data = doc["data"];
-                    if(index>=0 && index < (int)savedLocations.size() && data && data.containsKey("name")){
-                        if(savedLocations[index].name) delete[] savedLocations[index].name;
-                        const char* name = data["name"].as<const char*>();
-                        char* name_copy = new char[strlen(name)+1]; strcpy(name_copy, name);
-                        savedLocations[index].name = name_copy;
-                        if(data.containsKey("lat")) savedLocations[index].lat = data["lat"];
-                        if(data.containsKey("lon")) savedLocations[index].lon = data["lon"];
+                    if(index>=0 && index < (int)savedLocations.size() && data && data["name"].is<const char*>()){
+                        savedLocations[index].name = String(data["name"].as<const char*>());
+                        if(data["lat"].is<double>()) savedLocations[index].lat = data["lat"];
+                        if(data["lon"].is<double>()) savedLocations[index].lon = data["lon"];
                         needsLocationsSave = true;
                     } else { Serial.println("Edit invalid index or data"); }
                 } else if(strcmp(action,"delete")==0){
                     int index = doc["index"] | -1;
                     if(index>=0 && index < (int)savedLocations.size()){
-                        if(savedLocations[index].name) delete[] savedLocations[index].name;
                         savedLocations.erase(savedLocations.begin()+index); needsLocationsSave = true;
                     } else { Serial.println("Delete invalid index"); }
                 } else if(strcmp(action,"resetStats")==0){
@@ -602,8 +597,8 @@ void checkBLEStatus() {
                     auto err = deserializeJson(doc, msg.data, msg.len);
                     if(err){ g_bleStats.rxParseErrors++; Serial.print("Position JSON parse error: "); Serial.println(err.c_str()); break; }
                     double lat=0, lon=0; bool valid=false;
-                    if(doc.containsKey("lat") && doc.containsKey("lon")){ lat=doc["lat"].as<double>(); lon=doc["lon"].as<double>(); valid=true; }
-                    else if(doc.containsKey("latitude") && doc.containsKey("longitude")){ lat=doc["latitude"].as<double>(); lon=doc["longitude"].as<double>(); valid=true; }
+                    if(doc["lat"].is<double>() && doc["lon"].is<double>()){ lat=doc["lat"].as<double>(); lon=doc["lon"].as<double>(); valid=true; }
+                    else if(doc["latitude"].is<double>() && doc["longitude"].is<double>()){ lat=doc["latitude"].as<double>(); lon=doc["longitude"].as<double>(); valid=true; }
                     if(valid && lat>=-90 && lat<=90 && lon>=-180 && lon<=180){
                         BLE_LAT = lat; BLE_LON = lon; blePositionSet = true; blePositionTime = millis(); g_bleStats.jsonPosPackets++; }
                     else { Serial.println("Position invalid or out of range"); }

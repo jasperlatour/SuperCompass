@@ -10,11 +10,14 @@ extern const char *station_password;
 extern const char *ap_ssid;
 extern const char *ap_password;
 
-// ---- Sensor Calibration Constants ----
-extern const int offset_x;
-extern const int offset_y;
-extern const float scale_x;
-extern const float scale_y;
+// ---- Sensor Calibration ----
+// Hard/soft-iron correction for the magnetometer. Not const: the in-menu
+// "Calibrate Compass" routine (src/page/calibration.cpp) updates these at
+// runtime and persists them via saveCalibrationValues() in settings.cpp.
+extern int offset_x;
+extern int offset_y;
+extern float scale_x;
+extern float scale_y;
 extern const double MAGNETIC_DECLINATION;
 
 // ---- Navigation Logic Constants ----

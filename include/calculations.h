@@ -16,6 +16,16 @@
 double calculateTargetBearing(double lat1Deg, double lon1Deg, double lat2Deg, double lon2Deg);
 
 /**
+ * * @brief Calculate the great-circle distance between two geographical points (Haversine formula).
+ * * @param lat1Deg Latitude of the first point in degrees.
+ * * @param lon1Deg Longitude of the first point in degrees.
+ * * @param lat2Deg Latitude of the second point in degrees.
+ * * @param lon2Deg Longitude of the second point in degrees.
+ * * @return The distance between the two points in meters.
+ */
+double calculateDistanceMeters(double lat1Deg, double lon1Deg, double lat2Deg, double lon2Deg);
+
+/**
  * @brief Calculates the true heading based on sensor readings, calibration, and declination.
  *
  * @param sensor A reference to the initialized MechaQMC5883 sensor object.

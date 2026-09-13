@@ -5,7 +5,7 @@
 #include "globals_and_includes.h" 
 
 typedef struct {
-    const char* name;
+    String name;
     double lat;
     double lon;
 } SavedLocation;

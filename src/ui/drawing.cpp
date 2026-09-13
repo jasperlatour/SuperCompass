@@ -13,77 +13,53 @@ void drawLetterInternal(M5Canvas& canvas, int x, int y, const char* letter) {
     canvas.drawString(letter, x, y);
 }
 
-// Draw the compass background with ticks, rings, and markers rotated so that
-// the dial rotates with heading and the north/red arrow remains fixed to screen up.
+// Draw the compass background with ticks and rings rotated so that the dial
+// rotates with heading. A fixed marker (drawn separately) marks screen-up as
+// the device's current facing direction.
 void drawCompassBackgroundToCanvas(M5Canvas& c, int centerX, int centerY, int R, double heading_rad) {
-    // Clear & base rings
-    c.fillScreen(TFT_BLACK);
-    // Outer ring
-    c.fillCircle(centerX, centerY, R, TFT_DARKGREY);
-    // Inner face
-    c.fillCircle(centerX, centerY, R - 20, TFT_BLACK);
+    // Clear & base rings (smooth-edged so the dial doesn't look pixelated on the round panel)
+    c.fillScreen(THEME_BG);
+    c.fillSmoothCircle(centerX, centerY, R, THEME_PANEL);
+    c.fillSmoothCircle(centerX, centerY, R - 18, THEME_BG);
 
-    // We rotate the tick marks opposite to device heading so they appear to spin.
-    // heading_rad: 0 means facing North, so no rotation needed; positive heading rotates dial clockwise visually.
-    // For screen coordinates (y up negative), we subtract heading for correct rotation.
-    for (int ang = 0; ang < 360; ang += 5) {
-        double rad = (ang - (heading_rad * 180.0 / M_PI)) * M_PI / 180.0; // convert ang-heading to radians
-        int outerR = R;
+    double heading_deg = heading_rad * 180.0 / M_PI;
+
+    // One tick every 10 degrees keeps the face legible instead of a dense 5-degree ring.
+    for (int ang = 0; ang < 360; ang += 10) {
+        double rad = (ang - heading_deg) * M_PI / 180.0;
+
         int len;
-        if (ang % 45 == 0)       len = 16;  // main intercardinal
-        else if (ang % 30 == 0)  len = 12;  // cardinal
-        else if (ang % 10 == 0)  len = 8;
-        else                     len = 4;
+        float halfWidth;
+        uint16_t color;
+        if (ang == 0)            { len = 18; halfWidth = 2.0f; color = THEME_ACCENT_NORTH; } // North
+        else if (ang % 90 == 0)  { len = 15; halfWidth = 1.5f; color = THEME_TEXT_MUTED; }   // E/S/W
+        else if (ang % 45 == 0)  { len = 11; halfWidth = 1.0f; color = THEME_TEXT_MUTED; }   // intercardinal
+        else                     { len = 6;  halfWidth = 0.6f; color = THEME_TEXT_DIM; }     // minor
 
-        int xOuter = centerX + (int)(outerR * sin(rad));
-        int yOuter = centerY - (int)(outerR * cos(rad));
-        int xInner = centerX + (int)((outerR - len) * sin(rad));
-        int yInner = centerY - (int)((outerR - len) * cos(rad));
+        int xOuter = centerX + (int)(R * sin(rad));
+        int yOuter = centerY - (int)(R * cos(rad));
+        int xInner = centerX + (int)((R - len) * sin(rad));
+        int yInner = centerY - (int)((R - len) * cos(rad));
 
-        c.drawLine(xInner, yInner, xOuter, yOuter, TFT_WHITE);
+        c.drawWideLine(xInner, yInner, xOuter, yOuter, halfWidth, color);
     }
+}
 
-    // Rotating cardinal arrows (N red, others white) that move with the dial.
-    const float arrowLen = 12.0f;   // length along radial direction
-    const float arrowHalfWidth = 8.0f; // half width at base
-    for (int i = 0; i < 4; ++i) {
-        // base angles: 0=N,90=E,180=S,270=W (degrees)
-        int baseDeg = i * 90;
-        double baseRad = baseDeg * M_PI / 180.0;
-        double radRel = baseRad - heading_rad; // rotate opposite to heading
+// Fixed "lubber line" marker at the top of the dial: always points to the
+// direction the device currently faces, regardless of heading rotation.
+void drawFixedHeadingMarker(M5Canvas& c, int centerX, int centerY, int R) {
+    int tipY = centerY - R + 3;
+    int baseY = centerY - R + 15;
+    const int halfW = 6;
 
-        // Radial unit vector (screen coords x=sin, y=-cos)
-        double ux = sin(radRel);
-        double uy = -cos(radRel);
-        // Tangential unit vector (perpendicular, clockwise)
-        double tx = cos(radRel);
-        double ty = sin(radRel);
-
-        // Tip at outer radius
-        double tipX = centerX + R * ux;
-        double tipY = centerY + R * uy;
-        // Base center inward
-        double baseCenterX = centerX + (R - arrowLen) * ux;
-        double baseCenterY = centerY + (R - arrowLen) * uy;
-        // Base corners
-        double leftX = baseCenterX - arrowHalfWidth * tx;
-        double leftY = baseCenterY - arrowHalfWidth * ty;
-        double rightX = baseCenterX + arrowHalfWidth * tx;
-        double rightY = baseCenterY + arrowHalfWidth * ty;
-
-        uint16_t col = (i == 0) ? TFT_RED : TFT_WHITE;
-        c.fillTriangle((int)tipX, (int)tipY,
-                       (int)leftX, (int)leftY,
-                       (int)rightX, (int)rightY,
-                       col);
-    }
+    c.fillTriangle(centerX, tipY, centerX - halfW, baseY, centerX + halfW, baseY, THEME_ACCENT_MARKER);
+    c.drawTriangle(centerX, tipY, centerX - halfW, baseY, centerX + halfW, baseY, THEME_BG);
 }
 
 // Draw rotating labels N,E,S,W around the dial
 void drawCompassLabels(M5Canvas& canvas, double heading_rad, int centerX, int centerY, int R) {
     canvas.setTextSize(2);
     canvas.setTextDatum(MC_DATUM);
-    canvas.setTextColor(TFT_WHITE);
 
     int labelR = R - 32;
     const char* labels[] = {"N","NE","E","SE","S","SW","W","NW"};
@@ -92,6 +68,7 @@ void drawCompassLabels(M5Canvas& canvas, double heading_rad, int centerX, int ce
         double ang = i * 45.0 * M_PI/180.0 - heading_rad;
         int x = centerX + (int)(labelR * sin(ang));
         int y = centerY - (int)(labelR * cos(ang));
+        canvas.setTextColor(i == 0 ? THEME_ACCENT_NORTH : THEME_TEXT_PRIMARY);
         drawLetterInternal(canvas, x, y, labels[i]);
     }
 }
@@ -100,22 +77,18 @@ void drawCompassLabels(M5Canvas& canvas, double heading_rad, int centerX, int ce
 void drawHeadingValue(M5Canvas& c, double heading_deg, int centerX, int centerY) {
     char buf[8];
     snprintf(buf, sizeof(buf), "%.0f°", heading_deg);
-    c.setTextSize(6);
+    c.setTextSize(4);
     c.setTextDatum(MC_DATUM);
-    c.setTextColor(TFT_GREEN, TFT_BLACK);
-    c.drawString(buf, centerX, centerY - 10);
+    c.setTextColor(THEME_ACCENT_PRIMARY, THEME_BG);
+    c.drawString(buf, centerX, centerY - 6);
 
     // Small directional suffix
     const char* dirs[] = {"N","NE","E","SE","S","SW","W","NW"};
     int idx = (int)round(heading_deg / 45.0) % 8;
     c.setTextSize(2);
-    c.drawString(dirs[idx], centerX, centerY + 20);
+    c.setTextColor(THEME_TEXT_PRIMARY, THEME_BG);
+    c.drawString(dirs[idx], centerX, centerY + 14);
 }
-
-// Arrow and GPS info remain unchanged...
-// ... (rest of your implementation)
-
-
 
 void drawTargetArrow(M5Canvas& canvas, double arrowAngleDeg, int centerX, int centerY, int R) {
 
@@ -172,50 +145,95 @@ void drawTargetArrow(M5Canvas& canvas, double arrowAngleDeg, int centerX, int ce
     int My = centerY + (int)(baseMX_rel * sinA + baseMY_rel * cosA);
 
     // --- Draw the Arrow ---
-    // Define the color (assuming TFT_BLUE is available)
-    uint16_t arrowColor = TFT_BLUE; // Or canvas.color565(0, 0, 255);
+    // Solid dart in the target accent color, filled on both halves for a bold,
+    // unambiguous pointer (previously one half was outline-only).
+    uint16_t arrowColor = THEME_ACCENT_TARGET;
 
-    // Draw the filled right half (Triangle AMC)
     canvas.fillTriangle(Ax, Ay, Mx, My, Cx, Cy, arrowColor);
-
-    // Draw the outlined left half (Triangle AMB)
-    // M5Canvas drawTriangle draws the outline connecting the three points.
-    canvas.drawTriangle(Ax, Ay, Mx, My, Bx, By, arrowColor);
+    canvas.fillTriangle(Ax, Ay, Mx, My, Bx, By, arrowColor);
 
 }
 
 
 void drawGpsInfo(M5Canvas& canvas, const TinyGPSPlus& gps, int centerX, int centerY) {
-    canvas.setTextSize(1);
-    canvas.setTextDatum(MC_DATUM); // Middle Center
-
-    // Get the current fix quality to determine if we're using BLE position
+    // Only surface this when there's something noteworthy (no fix, or using BLE
+    // instead of GPS) - a normal fix stays out of the way of the heading readout.
     int fixQuality = getFixQuality();
     bool usingBlePosition = (fixQuality == 9);
-    
-    // If GPS is valid or we're using BLE position
-    if (gps.location.isValid() || usingBlePosition) {
-        // Get position from our global variables which might come from BLE
-        double lat = getLatitude();
-        double lon = getLongitude();
-        
-        //draws the GPS coordinates
-        // String lat_str = "Lat: " + String(lat, 4);
-        // String lng_str = "Lng: " + String(lon, 4);
 
-        // canvas.setTextColor(TFT_BLACK, TFT_WHITE);
-        // canvas.drawString(lat_str, centerX, centerY - 10);
-        // canvas.drawString(lng_str, centerX, centerY + 10);
-        
-        // If using BLE position, show an indicator
-        if (usingBlePosition) {
-            canvas.setTextColor(TFT_BLUE, TFT_WHITE);
-            canvas.drawString("Using BLE Position", centerX, centerY - 30);
-        }
+    const char* msg;
+    uint16_t bg, fg;
+    if (usingBlePosition) {
+        msg = "BLE Position";
+        bg = TFT_NAVY; fg = TFT_SKYBLUE;
+    } else if (!gps.location.isValid()) {
+        msg = "No GPS Fix";
+        bg = THEME_PANEL; fg = THEME_WARN;
     } else {
-        // Show "No GPS" if not valid (on canvas)
-        canvas.setTextColor(TFT_RED, TFT_WHITE);
-        canvas.drawString("No GPS Fix", centerX, centerY - 50);
+        return;
+    }
+
+    canvas.setTextSize(1);
+    canvas.setTextDatum(MC_DATUM);
+    int yPos = centerY - 60;
+    int w = canvas.textWidth(msg) + 16;
+    int h = 18;
+
+    canvas.fillSmoothRoundRect(centerX - w / 2, yPos - h / 2, w, h, h / 2, bg);
+    canvas.setTextColor(fg, bg);
+    canvas.drawString(msg, centerX, yPos);
+}
+
+// Formats a distance for display: meters below 1km, kilometers (1 decimal) above.
+static String formatDistanceForDisplay(double meters) {
+    if (meters < 1000.0) {
+        return String((int)round(meters)) + " m";
+    }
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%.1f km", meters / 1000.0);
+    return String(buf);
+}
+
+void drawTargetInfoBanner(M5Canvas& canvas, int centerX, int centerY, int R,
+                           bool targetSet, bool locationValid,
+                           const String& targetName, double distanceMeters) {
+    String line1, line2;
+    uint16_t bg, fg;
+
+    if (!targetSet) {
+        line1 = "No Target Set";
+        bg = THEME_PANEL; fg = THEME_TEXT_MUTED;
+    } else if (!locationValid) {
+        line1 = targetName;
+        line2 = "Waiting for fix...";
+        bg = THEME_PANEL; fg = THEME_WARN;
+    } else {
+        line1 = targetName;
+        line2 = formatDistanceForDisplay(distanceMeters);
+        bg = THEME_ACCENT_TARGET; fg = THEME_BG;
+    }
+
+    canvas.setTextSize(1);
+    canvas.setTextDatum(MC_DATUM);
+
+    int w1 = canvas.textWidth(line1.c_str());
+    int w2 = line2.length() ? canvas.textWidth(line2.c_str()) : 0;
+    int w = (w1 > w2 ? w1 : w2) + 24;
+    if (w > canvas.width() - 4) w = canvas.width() - 4; // stay within the round panel
+
+    int h = line2.length() ? 34 : 20;
+    int yPos = centerY + 52;
+    int x = centerX - w / 2;
+    int y = yPos - h / 2;
+    int cornerR = (h / 2 < 14) ? h / 2 : 14;
+
+    canvas.fillSmoothRoundRect(x, y, w, h, cornerR, bg);
+    canvas.setTextColor(fg, bg);
+    if (line2.length()) {
+        canvas.drawString(line1, centerX, yPos - 8);
+        canvas.drawString(line2, centerX, yPos + 8);
+    } else {
+        canvas.drawString(line1, centerX, yPos);
     }
 }
 
@@ -232,13 +250,15 @@ uint32_t popupEndTime = 0;
 String popupMessage = "";
 uint16_t popupTextColor = TFT_WHITE;
 uint16_t popupBgColor = TFT_BLUE;
+uint32_t popupDurationMs = 0;
 
 void showPopupNotification(const char* message, uint32_t durationMs, uint16_t color, uint16_t bgColor) {
     Serial.print("Showing popup: ");
     Serial.println(message);
-    
+
     // Store popup information in global variables
     popupMessage = String(message);
+    popupDurationMs = durationMs;
     popupEndTime = millis() + durationMs;
     popupActive = true;
     popupTextColor = color;
@@ -249,11 +269,26 @@ void showPopupNotification(const char* message, uint32_t durationMs, uint16_t co
 void drawPopupIfActive(M5Canvas& canvas) {
     if (!popupActive) return;
 
+    uint32_t now = millis();
+
     // Expired? clear state and return
-    if (millis() > popupEndTime) {
+    if (now > popupEndTime) {
         popupActive = false;
         return;
     }
+
+    // Ease in/out over 150ms at each end (smoothstep) so the popup slides into
+    // place and eases back out, instead of snapping on/off instantly.
+    const float transitionMs = 150.0f;
+    uint32_t remaining = popupEndTime - now;
+    uint32_t elapsed = popupDurationMs - remaining;
+
+    float entrance = (transitionMs > 0.0f) ? min(1.0f, elapsed / transitionMs) : 1.0f;
+    float exit = (transitionMs > 0.0f) ? min(1.0f, remaining / transitionMs) : 1.0f;
+    float t = min(entrance, exit);
+    float eased = t * t * (3.0f - 2.0f * t); // smoothstep
+
+    int slideOffset = (int)((1.0f - eased) * 24.0f); // slides up into place, eases back down on exit
 
     // Save state
     int oldTextSize = canvas.getTextSizeX();
@@ -266,7 +301,7 @@ void drawPopupIfActive(M5Canvas& canvas) {
     int popupHeight = 50;
     if (popupWidth > canvas.width() - 10) popupWidth = canvas.width() - 10; // clamp
     int popupX = (canvas.width() - popupWidth) / 2;
-    int popupY = (canvas.height() - popupHeight) / 2;
+    int popupY = (canvas.height() - popupHeight) / 2 + slideOffset;
 
     // Draw body
     canvas.fillRoundRect(popupX, popupY, popupWidth, popupHeight, 15, popupBgColor);
@@ -274,7 +309,7 @@ void drawPopupIfActive(M5Canvas& canvas) {
     canvas.drawRoundRect(popupX+1, popupY+1, popupWidth-2, popupHeight-2, 14, TFT_WHITE);
 
     canvas.setTextColor(popupTextColor);
-    canvas.drawString(popupMessage, canvas.width() / 2, canvas.height() / 2);
+    canvas.drawString(popupMessage, canvas.width() / 2, canvas.height() / 2 + slideOffset);
 
     // Restore
     canvas.setTextSize(oldTextSize);

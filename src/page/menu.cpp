@@ -119,9 +119,11 @@ void drawAppMenu(M5Canvas &canvas, int centerX, int centerY, int radius, int arr
             }
 
             if (is_selected) {
-                // Draw a circle around the selected icon
-                int selection_circle_radius = (icon->width / 2) + 4; // Adjust padding as needed
-                canvas.drawCircle(icon_center_x, icon_center_y, selection_circle_radius, TFT_WHITE);
+                // Slow "breathing" ring around the selected icon (smooth, anti-aliased
+                // via fillArc) instead of a static outline - gives the menu a bit of life.
+                float pulse = (sinf(millis() * 0.004f) + 1.0f) * 0.5f; // 0..1
+                int ringRadius = (icon->width / 2) + 4 + (int)(pulse * 3.0f);
+                canvas.fillArc(icon_center_x, icon_center_y, ringRadius, ringRadius + 2, 0, 360, THEME_ACCENT_PRIMARY);
 
                 // Store the name of the selected item
                 selectedItemName = menuItems[i].name;
